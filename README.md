@@ -8,5 +8,4 @@ Next, you will need to install:
 pip install discord.py
 pip install pymongo
 pip install dnspython
-pip install td-ameritrade-python-api
 ```
