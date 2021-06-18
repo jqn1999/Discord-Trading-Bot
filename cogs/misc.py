@@ -26,10 +26,10 @@ class Misc(commands.Cog):
             UserData.insert_one(post)
 
             post = {'_id': ctx.author.id}
-            userTrades.insert_one(post)
+            UserTrades.insert_one(post)
 
             await ctx.channel.send('You have been added to the database')
-            print(f'User has been added to the database')
+            print(f'{ctx.author} has been added to the database')
         else:
             #user = UserData.find(query)
             #for result in user:
@@ -60,7 +60,7 @@ class Misc(commands.Cog):
             UserData.update_one({'_id': ctx.author.id}, {'$set': {'potatoes': potatoes} })
             UserData.update_one({'_id': ctx.author.id}, {'$set': {'workTimer': int(time.time())} })
             await ctx.channel.send(f'You work and now have {potatoes} potatoes.')
-            print('User has worked')
+            print(f'{ctx.author} has worked')
         else:
             remainingTime = workTimer+82800-int(time.time())
             if (remainingTime >= 3600):
