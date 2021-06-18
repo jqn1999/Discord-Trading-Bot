@@ -39,7 +39,7 @@ class Trading(commands.Cog):
 
     @commands.command()
     async def getOption(self, ctx, stock, option, date):
-        #try:
+        try:
             stock = stock.upper()
             strike = option[:-1]
             optionType = option[-1]
@@ -66,10 +66,9 @@ class Trading(commands.Cog):
             embed.set_footer(text="Potato Hoarders")
 
             await ctx.channel.send(embed=embed)
-            #await ctx.channel.send(f"The current price of {stock} {strike} {optionType} {month}/{day}/{year} is ${mark}.")
             print(f"{ctx.author} requested {stock} option information")
-        #except:
-            #await ctx.channel.send("Format incorrect, please recheck.")
+        except:
+            await ctx.channel.send("Format incorrect, please recheck.")
 
 def setup(client):
     client.add_cog(Trading(client))
