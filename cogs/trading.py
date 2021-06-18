@@ -27,10 +27,9 @@ class Trading(commands.Cog):
             mark = userRequest.json()[stock]["mark"]
             mark = "{:.2f}".format(mark)
 
-            embed = discord.Embed(title='Stock Price', color=discord.Color.blue())
-            embed.set_author(name=ctx.author)
+            embed = discord.Embed(title='Stock Price', description=(f"Ticker: {stock}\nPrice: {mark}"), color=discord.Color.blue())
+            embed.set_author(name=ctx.author.name)
             embed.set_thumbnail(url=ctx.author.avatar_url)
-            embed.add_field(name='\u200b',value=(f"Ticker: {stock}\nPrice: {mark}"), inline=False)
             embed.set_footer(text="Potato Hoarders")
 
             await ctx.channel.send(embed=embed)
@@ -61,10 +60,9 @@ class Trading(commands.Cog):
             mark = userRequest.json()[f"{optionType.lower()}ExpDateMap"][key][strike][0]["mark"]
             mark = "{:.2f}".format(mark)
 
-            embed = discord.Embed(title='Option Details', color=discord.Color.blue())
-            embed.set_author(name=ctx.author)
+            embed = discord.Embed(title='Option Details', description=(f"Ticker: {stock}\nStrike: {strike}\nExpiration: {date}\nPrice: {mark}"),color=discord.Color.blue())
+            embed.set_author(name=ctx.author.name)
             embed.set_thumbnail(url=ctx.author.avatar_url)
-            embed.add_field(name='\u200b',value=(f"Ticker: {stock}\nStrike: {strike}\nExpiration: {date}\nPrice: {mark}"), inline=False)
             embed.set_footer(text="Potato Hoarders")
 
             await ctx.channel.send(embed=embed)
