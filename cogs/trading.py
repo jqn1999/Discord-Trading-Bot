@@ -26,7 +26,14 @@ class Trading(commands.Cog):
             userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/quotes?apikey={td_token}&symbol={stock}", headers = headers)
             mark = userRequest.json()[stock]["mark"]
             mark = "{:.2f}".format(mark)
-            await ctx.channel.send(f"The current price of {stock} is ${mark}.")
+
+            embed = discord.Embed(title='Stock Price', color=discord.Color.blue())
+            embed.set_author(name=ctx.author)
+            embed.set_thumbnail(url=ctx.author.avatar_url)
+            embed.add_field(name='\u200b',value=(f"Ticker: {stock}\nPrice: {mark}"), inline=False)
+            embed.set_footer(text="Potato Hoarders")
+
+            await ctx.channel.send(embed=embed)
             print(f"{ctx.author} requested {stock} information")
         except:
             await ctx.channel.send("That stock ticker does not exist!")
@@ -34,28 +41,35 @@ class Trading(commands.Cog):
     @commands.command()
     async def getOption(self, ctx, stock, option, date):
         #try:
-        stock = stock.upper()
-        strike = option[:-1]
-        optionType = option[-1]
-        month,day,year = date.split('/')
+            stock = stock.upper()
+            strike = option[:-1]
+            optionType = option[-1]
+            month,day,year = date.split('/')
 
-        if optionType.lower() == 'c':
-            optionType = 'CALL'
-        elif optionType.lower() == 'p':
-            optionType = 'PUT'
-        else:
-            await ctx.channel.send("Format incorrect, please recheck.")
-            return
+            if optionType.lower() == 'c':
+                optionType = 'CALL'
+            elif optionType.lower() == 'p':
+                optionType = 'PUT'
+            else:
+                await ctx.channel.send("Format incorrect, please recheck.")
+                return
 
-        userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/chains?apikey={td_token}&symbol={stock}&contractType={optionType}&includeQuotes=FALSE&strike={strike}&fromDate=20{year}-{month}-{day}&toDate=20{year}-{month}-{day}", headers = headers)
-        strike = "{:.1f}".format(float(strike))
-        key = list(userRequest.json()[f"{optionType.lower()}ExpDateMap"].keys())[0]
+            userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/chains?apikey={td_token}&symbol={stock}&contractType={optionType}&includeQuotes=FALSE&strike={strike}&fromDate=20{year}-{month}-{day}&toDate=20{year}-{month}-{day}", headers = headers)
+            strike = "{:.1f}".format(float(strike))
+            key = list(userRequest.json()[f"{optionType.lower()}ExpDateMap"].keys())[0]
 
-        mark = userRequest.json()[f"{optionType.lower()}ExpDateMap"][key][strike][0]["mark"]
-        mark = "{:.2f}".format(mark)
+            mark = userRequest.json()[f"{optionType.lower()}ExpDateMap"][key][strike][0]["mark"]
+            mark = "{:.2f}".format(mark)
 
-        await ctx.channel.send(f"The current price of {stock} {strike} {optionType} {month}/{day}/{year} is ${mark}.")
-        print(f"{ctx.author} requested {stock} option information")
+            embed = discord.Embed(title='Option Details', color=discord.Color.blue())
+            embed.set_author(name=ctx.author)
+            embed.set_thumbnail(url=ctx.author.avatar_url)
+            embed.add_field(name='\u200b',value=(f"Ticker: {stock}\nStrike: {strike}\nExpiration: {date}\nPrice: {mark}"), inline=False)
+            embed.set_footer(text="Potato Hoarders")
+
+            await ctx.channel.send(embed=embed)
+            #await ctx.channel.send(f"The current price of {stock} {strike} {optionType} {month}/{day}/{year} is ${mark}.")
+            print(f"{ctx.author} requested {stock} option information")
         #except:
             #await ctx.channel.send("Format incorrect, please recheck.")
 
