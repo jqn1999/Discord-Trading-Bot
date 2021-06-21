@@ -3,7 +3,7 @@ from discord.ext import commands
 import os
 
 client = commands.Bot(command_prefix = '.')
-bot_token = open("bot_token.txt", "r").read()
+bot_token = open("./tokens/bot_token.txt", "r").read()
 
 @client.command()
 @commands.has_permissions(administrator=True)

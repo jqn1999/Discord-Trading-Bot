@@ -5,7 +5,7 @@ from pymongo import MongoClient
 import asyncio
 
 client = discord.Client()
-db_token = open("db_token.txt", "r").read()
+db_token = open("./tokens/db_token.txt", "r").read()
 cluster = MongoClient(db_token)
 
 db = cluster["PotatoTrading"]

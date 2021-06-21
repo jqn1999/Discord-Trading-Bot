@@ -8,8 +8,8 @@ import asyncio
 import datetime
 
 # Gathers the needed tokens
-td_token = open("td_token.txt", "r").read()
-db_token = open("db_token.txt", "r").read()
+td_token = open("./tokens/td_token.txt", "r").read()
+db_token = open("./tokens/db_token.txt", "r").read()
 
 # Connects to the mongodb and sets variables up
 cluster = MongoClient(db_token)
@@ -199,6 +199,7 @@ class Trading(commands.Cog):
                 user = UserData.find(query)
                 for result in user:
                     potatoes = result["potatoes"]
+                    openTrades = result["openTrades"]
 
             # Returns option information to user
             await ctx.message.delete()
@@ -228,7 +229,8 @@ class Trading(commands.Cog):
 
                 if str(reaction) == '✅':
                     remainingPotatoes = round(potatoes-totalCost, 2)
-                    UserData.update_one({'_id': ctx.author.id}, {'$set': {'potatoes': remainingPotatoes} })
+                    openTrades += 1
+                    UserData.update_one({'_id': ctx.author.id}, {'$set': {'potatoes': remainingPotatoes}}, {'$set': {'openTrades': openTrades}})
 
                     # Add a check later on for if the option is already opened
                     UserTrades.update_one({'_id': ctx.author.id}, {'$push': {'openOptions': {'ticker': (f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"), "quantity": quantity, "totalCost": totalCost}} })
