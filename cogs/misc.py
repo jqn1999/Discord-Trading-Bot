@@ -22,7 +22,7 @@ class Misc(commands.Cog):
     async def register(self, ctx):
         query = {'_id': ctx.author.id}
         if (UserData.count_documents(query) == 0):
-            post = {'_id': ctx.author.id, 'potatoes': 1000, 'workTimer': int(time.time()), 'coinTimer': int(time.time()), 'numTrades': 0, 'winningTrades': 0, 'losingTrades': 0, 'totalGain': 0, 'totalLoss': 0 }
+            post = {'_id': ctx.author.id, 'potatoes': 1000.00, 'workTimer': int(time.time()), 'coinTimer': int(time.time()), 'numTrades': 0, 'winningTrades': 0, 'losingTrades': 0, 'totalGain': 0, 'totalLoss': 0 }
             UserData.insert_one(post)
 
             post = {'_id': ctx.author.id, 'openStocks': [], 'closedStocks': [], 'openOptions': [], 'closedOptions': []}

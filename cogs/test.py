@@ -19,16 +19,7 @@ class Test(commands.Cog):
 
     @commands.command()
     async def test(self, ctx):
-        try:
-            optionData = UserTrades.find({"_id": ctx.author.id}, {"openOptions": {'$elemMatch': {"ticker": "AAPL_132.0_PUT_06/25/2021"}}})
-            for result in optionData:
-                ticker = result["openOptions"][0]["ticker"]
-                price = result["openOptions"][0]["price"]
-                quantity = result["openOptions"][0]["quantity"]
-
-            await ctx.channel.send(f"{ticker} / {price} / {quantity}")
-        except:
-            await ctx.channel.send(f"You do not own this position.")
+        print('hi')
 
 def setup(client):
     client.add_cog(Test(client))
