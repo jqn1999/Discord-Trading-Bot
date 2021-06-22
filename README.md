@@ -9,6 +9,7 @@ pip install discord.py
 pip install pymongo
 pip install dnspython
 pip install requests
+npm install express
 npm install dotenv
 ```
 Make a folder named 'tokens' and place your bot_token.txt and td_token.txt inside
