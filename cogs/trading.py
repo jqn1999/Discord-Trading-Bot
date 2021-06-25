@@ -46,17 +46,17 @@ class Trading(commands.Cog):
             await ctx.channel.send("That stock ticker does not exist!")
 
     @commands.command(aliases = ["buystock", "bs"])
-    async def buyStock( self, ctx, stock, quantity=None):
+    async def buyStock(self, ctx, stock, quantity=None):
         try:
-            # Queries database for user info
-            query = {'_id': ctx.author.id}
-            if (UserData.count_documents(query) == 0):
-                await ctx.channel.send('You need to register before you can trade')
-                return
-            else:
-                user = UserData.find(query)
+            r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
+            user = json.loads(r.text)
+
+            if (user != []):
                 for result in user:
                     potatoes = result["potatoes"]
+            else:
+                await ctx.channel.send('You need to register before you can trade')
+                return
 
             if quantity == None:
                 quantity = 1.0
@@ -157,7 +157,7 @@ class Trading(commands.Cog):
 
     @commands.command(aliases = ["buyoption", "BTO", "bto", "bo"])
     async def buyOption(self, ctx, stock, option, date, quantity=None):
-        try:
+        #try:
             # Formats given variables
             stock = stock.upper()
             strike = option[:-1]
@@ -230,7 +230,7 @@ class Trading(commands.Cog):
                 if str(reaction) == '✅':
                     remainingPotatoes = round(potatoes-totalCost, 2)
                     openTrades += 1
-                    UserData.update_one({'_id': ctx.author.id}, {'$set': {'potatoes': remainingPotatoes}}, {'$set': {'openTrades': openTrades}})
+                    UserData.update_one({'_id': ctx.author.id}, {'$set': {'potatoes': remainingPotatoes}, '$set': {'openTrades': openTrades}})
 
                     # Add a check later on for if the option is already opened
                     UserTrades.update_one({'_id': ctx.author.id}, {'$push': {'openOptions': {'ticker': (f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"), "quantity": quantity, "totalCost": totalCost}} })
@@ -245,8 +245,8 @@ class Trading(commands.Cog):
 
             await message.clear_reactions()
             await message.edit(embed=embed)
-        except:
-            await ctx.channel.send("Format incorrect or you have not registered.")
+        #except:
+            #await ctx.channel.send("Format incorrect or you have not registered.")
     
     @commands.command(aliases = ['openoptions'])
     async def openOptions(self, ctx):
