@@ -1,18 +1,9 @@
 import discord
 from discord.ext import commands
-import pymongo
-from pymongo import MongoClient
 import time
 import math
 import requests
 import json
-
-db_token = open("./tokens/db_token.txt", "r").read()
-cluster = MongoClient(db_token)
-PotatoTrading = cluster["PotatoTrading"]
-
-UserData = PotatoTrading["UserData"]
-UserTrades = PotatoTrading["UserTrades"]
 
 class Misc(commands.Cog):
 
