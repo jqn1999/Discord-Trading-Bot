@@ -1,21 +1,12 @@
 import discord
 from discord.ext import commands
-import pymongo
-from pymongo import MongoClient
 import requests
 import json
 import asyncio
 import datetime
 
-# Gathers the needed tokens
+# Gathers the needed token
 td_token = open("./tokens/td_token.txt", "r").read()
-db_token = open("./tokens/db_token.txt", "r").read()
-
-# Connects to the mongodb and sets variables up
-cluster = MongoClient(db_token)
-db = cluster["PotatoTrading"]
-UserData = db["UserData"]
-UserTrades = db["UserTrades"]
 
 headers = {'Authorization': ''}
 
@@ -97,10 +88,10 @@ class Trading(commands.Cog):
 
                 if str(reaction) == '✅':
                     remainingPotatoes = round(potatoes-totalCost, 2)
-                    UserData.update_one({'_id': ctx.author.id}, {'$set': {'potatoes': remainingPotatoes} })
+                    requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{remainingPotatoes}')
 
                     # Add a check later on for if the stock is already opened
-                    UserTrades.update_one({'_id': ctx.author.id}, {'$push': {'openStocks': {'ticker': (f"{stock}"), "quantity": quantity, "totalCost": totalCost}} })
+                    requests.get(f'http://localhost:3000/openstock/{ctx.author.id}/{stock}/{quantity}/{totalCost}')
 
                     embed.set_field_at(0, name="Order Confirmed", value=(f'You have: {remainingPotatoes} potatoes'),inline=False)
                     print(f"{ctx.author} has bought {stock} stocks")
@@ -125,6 +116,8 @@ class Trading(commands.Cog):
             month,day,year = date.split('/')
             if len(month) == 1:
                 month = "0" + month
+            if len(day) == 1:
+                day = "0" + day
             if len(year) == 2:
                 year = "20" + year
 
@@ -137,7 +130,7 @@ class Trading(commands.Cog):
                 return
 
             # Uses TDA API to get info on given option
-            userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/chains?apikey={td_token}&symbol={stock}&contractType={optionType}&includeQuotes=FALSE&strike={strike}&fromDate=20{year}-{month}-{day}&toDate=20{year}-{month}-{day}", headers = headers)
+            userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/chains?apikey={td_token}&symbol={stock}&contractType={optionType}&includeQuotes=FALSE&strike={strike}&fromDate={year}-{month}-{day}&toDate={year}-{month}-{day}", headers = headers)
             strike = "{:.1f}".format(float(strike))
             key = list(userRequest.json()[f"{optionType.lower()}ExpDateMap"].keys())[0]
 
@@ -157,7 +150,7 @@ class Trading(commands.Cog):
 
     @commands.command(aliases = ["buyoption", "BTO", "bto", "bo"])
     async def buyOption(self, ctx, stock, option, date, quantity=None):
-        #try:
+        try:
             # Formats given variables
             stock = stock.upper()
             strike = option[:-1]
@@ -169,6 +162,8 @@ class Trading(commands.Cog):
                 quantity = float(quantity)
             if len(month) == 1:
                 month = "0" + month
+            if len(day) == 1:
+                day = "0" + day
             if len(year) == 2:
                 year = "20" + year
 
@@ -181,7 +176,7 @@ class Trading(commands.Cog):
                 return
 
             # Uses TDA API to get info on given option
-            userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/chains?apikey={td_token}&symbol={stock}&contractType={optionType}&includeQuotes=FALSE&strike={strike}&fromDate={year}-{month}-{day}&toDate=20{year}-{month}-{day}", headers = headers)
+            userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/chains?apikey={td_token}&symbol={stock}&contractType={optionType}&includeQuotes=FALSE&strike={strike}&fromDate={year}-{month}-{day}&toDate={year}-{month}-{day}", headers = headers)
             strike = "{:.1f}".format(float(strike))
             key = list(userRequest.json()[f"{optionType.lower()}ExpDateMap"].keys())[0]
 
@@ -191,15 +186,16 @@ class Trading(commands.Cog):
             totalCost = round(totalCost, 2)
 
             # Queries database for user info
-            query = {'_id': ctx.author.id}
-            if (UserData.count_documents(query) == 0):
-                await ctx.channel.send('You need to register before you can trade')
-                return
-            else:
-                user = UserData.find(query)
+            r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
+            user = json.loads(r.text)
+
+            if (user != []):
                 for result in user:
                     potatoes = result["potatoes"]
                     openTrades = result["openTrades"]
+            else:
+                await ctx.channel.send('You need to register before you can trade')
+                return
 
             # Returns option information to user
             await ctx.message.delete()
@@ -230,11 +226,13 @@ class Trading(commands.Cog):
                 if str(reaction) == '✅':
                     remainingPotatoes = round(potatoes-totalCost, 2)
                     openTrades += 1
-                    UserData.update_one({'_id': ctx.author.id}, {'$set': {'potatoes': remainingPotatoes}, '$set': {'openTrades': openTrades}})
+                    requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{remainingPotatoes}')
+                    requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
 
                     # Add a check later on for if the option is already opened
-                    UserTrades.update_one({'_id': ctx.author.id}, {'$push': {'openOptions': {'ticker': (f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"), "quantity": quantity, "totalCost": totalCost}} })
-
+                    #UserTrades.update_one({'_id': ctx.author.id}, {'$push': {'openOptions': {'ticker': (f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"), "quantity": quantity, "totalCost": totalCost}} })
+                    requests.get(f'http://localhost:3000/openoption/{ctx.author.id}/{stock}_{strike}_{optionType}_/{month}/{day}/{year}/{quantity}/{totalCost}')
+                    
                     embed.set_field_at(0, name="Order Confirmed", value=(f'You have: {remainingPotatoes} potatoes'),inline=False)
                     print(f"{ctx.author} has bought an options contract")
                 elif str(reaction) == '❌':
@@ -245,20 +243,24 @@ class Trading(commands.Cog):
 
             await message.clear_reactions()
             await message.edit(embed=embed)
-        #except:
-            #await ctx.channel.send("Format incorrect or you have not registered.")
+        except:
+            await ctx.channel.send("Format incorrect or you have not registered.")
     
-    @commands.command(aliases = ['openoptions'])
+    @commands.command(aliases = ['openoptions', 'options'])
     async def openOptions(self, ctx):
-        optionData = UserTrades.find({"_id": ctx.author.id})
+        r = requests.get(f'http://localhost:3000/find/UserTrades/{ctx.author.id}')
+        user = json.loads(r.text)
+
         string = ''
-        for result in optionData:
+        for result in user:
             for i in range(len(result["openOptions"])):
                 stock, strike, optionType, date = result["openOptions"][i]["ticker"].split('_')
                 quantity = result["openOptions"][i]["quantity"]
                 totalCost = result["openOptions"][i]["totalCost"]
                 price = round(totalCost/quantity, 2)
                 string = string + (f"Ticker: {stock}, Strike: {strike} {optionType}, Exp: {date}, Cost Per: {price}, Quantity: {quantity}, Total Cost: {totalCost}\n")
+        if (string == ''):
+            await ctx.channel.send("You have no open positions")
         await ctx.channel.send(string)
 
     @commands.command(aliases = ['openoption'])
@@ -271,6 +273,8 @@ class Trading(commands.Cog):
         month,day,year = date.split('/')
         if len(month) == 1:
             month = "0" + month
+        if len(day) == 1:
+            day = "0" + day
         if len(year) == 2:
             year = "20" + year
 
@@ -284,11 +288,16 @@ class Trading(commands.Cog):
 
         try:
             # Find specific position
-            optionData = UserTrades.find({"_id": ctx.author.id}, {"openOptions": {'$elemMatch': {"ticker": f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"}}})
-            for result in optionData:
-                quantity = result["openOptions"][0]["quantity"]
-                totalCost = result["openOptions"][0]["totalCost"]
-                price = round(totalCost/quantity, 2)
+            #user = UserTrades.find({"_id": ctx.author.id}, {"openOptions": {'$elemMatch': {"ticker": f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"}}})
+            r = requests.get(f'http://localhost:3000/findoption/{ctx.author.id}/{stock}_{strike}_{optionType}_/{month}/{day}/{year}')
+            user = json.loads(r.text)
+            tickerMatch = f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"
+            for result in user:
+                for option in range(len(result["openOptions"])):
+                    if (result["openOptions"][option]['ticker'] == tickerMatch):
+                        quantity = result["openOptions"][option]["quantity"]
+                        totalCost = result["openOptions"][option]["totalCost"]
+                        price = round(totalCost/quantity, 2)
 
             embed = discord.Embed(title=(f"Open Option Info\nTotal Cost: {totalCost}"), description=(f"Ticker: {stock} {optionType}\nStrike: {strike}\nExpiration: {month}/{day}/{year}\nPrice: {price}\nQuantity: {quantity}"),color=discord.Color.blue())
             embed.set_author(name=ctx.author.name)
