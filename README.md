@@ -6,8 +6,6 @@ This is a Discord bot in development that will allow users to simulate stock and
 Next, you will need to install:
 ```
 pip install discord.py
-pip install pymongo (In the process of removing pymongo's usage)
-pip install dnspython (Will also be unneeded)
 pip install requests
 
 npm init --yes
