@@ -12,6 +12,7 @@ class Misc(commands.Cog):
 
     @commands.command()
     async def register(self, ctx):
+        print(ctx.author.id)
         r = requests.get(f'http://localhost:3000/register/{ctx.author.id}')
 
         if (r.content):

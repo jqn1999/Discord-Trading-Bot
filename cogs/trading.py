@@ -15,7 +15,7 @@ class Trading(commands.Cog):
     def __init__(self, client):
         self.client = client
 
-    # Allows users to get stock information
+    ### Provides stock and options information
     @commands.command(aliases=['getstock', 'stock', 'Stock'])
     async def getStock(self, ctx, stock):
         try:
@@ -36,76 +36,6 @@ class Trading(commands.Cog):
         except:
             await ctx.channel.send("That stock ticker does not exist!")
 
-    @commands.command(aliases = ["buystock", "bs"])
-    async def buyStock(self, ctx, stock, quantity=None):
-        try:
-            r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
-            user = json.loads(r.text)
-
-            if (user != []):
-                for result in user:
-                    potatoes = result["potatoes"]
-            else:
-                await ctx.channel.send('You need to register before you can trade')
-                return
-
-            if quantity == None:
-                quantity = 1.0
-            else:
-                quantity = float(quantity)
-
-            # Grabs stock info using TDA API, returns as embed
-            stock = stock.upper()
-            userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/quotes?apikey={td_token}&symbol={stock}", headers = headers)
-            mark = userRequest.json()[stock]["mark"]
-            mark = "{:.2f}".format(mark)
-            totalCost = float(mark)*quantity
-            totalCost = round(totalCost, 2)
-
-            embed = discord.Embed(title=(f'Buy Stock\nTotal Cost: {totalCost}'), description=(f"Ticker: {stock}\nPrice: {mark}\nQuantity: {quantity}"), color=discord.Color.green())
-            embed.set_author(name=ctx.author.name)
-            embed.set_thumbnail(url=ctx.author.avatar_url)
-            embed.timestamp = datetime.datetime.utcnow()
-            embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
-
-            # Checks if user has enough money
-            if potatoes < totalCost:
-                embed.add_field(name=(f"You do not have enough\nto purchase this stock."),value=(f"You have: {potatoes} potatoes"),inline=False)
-                message = await ctx.channel.send(embed=embed)
-                return
-
-            embed.add_field(name="Confirm or reject\nyour order by reacting\nwith a ✅ or a ❌\nin the next 10 seconds.",value='\u200b',inline=False)
-            message = await ctx.channel.send(embed=embed)
-            await message.add_reaction('✅')
-            await message.add_reaction('❌')
-
-            def check(reaction, user):
-                return reaction.message == message and str(reaction) in ['✅','❌'] and user == ctx.author
-            
-            # Checks if user accepts or rejects the given price
-            try:
-                reaction, user = await self.client.wait_for('reaction_add', timeout = 10.0, check=check)
-
-                if str(reaction) == '✅':
-                    remainingPotatoes = round(potatoes-totalCost, 2)
-                    requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{remainingPotatoes}')
-
-                    # Add a check later on for if the stock is already opened
-                    requests.get(f'http://localhost:3000/openstock/{ctx.author.id}/{stock}/{quantity}/{totalCost}')
-
-                    embed.set_field_at(0, name="Order Confirmed", value=(f'You have: {remainingPotatoes} potatoes'),inline=False)
-                    print(f"{ctx.author} has bought {stock} stocks")
-                elif str(reaction) == '❌':
-                    embed.set_field_at(0, name="Order Rejected", value='\u200b',inline=False)
-            except asyncio.TimeoutError:
-                embed.set_field_at(0, name="Order Timed Out", value='\u200b',inline=False)
-
-            await message.clear_reactions()
-            await message.edit(embed=embed)
-        except:
-            await ctx.channel.send("Format incorrect or you have not registered.")
-
-    # Used to get information on a given option contract
     @commands.command(aliases=['getoption', 'option', 'Option'])
     async def getOption(self, ctx, stock, option, date):
         try:
@@ -148,18 +78,256 @@ class Trading(commands.Cog):
         except:
             await ctx.channel.send("Format incorrect or you have not registered.")
 
+    ### Allows users to buy (and eventually sell) stock and options positions
+    @commands.command(aliases = ["buystock", "bs"])
+    async def buyStock(self, ctx, stock, quantity=None):
+        try:
+            r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
+            user = json.loads(r.text)
+
+            if (user != []):
+                for result in user:
+                    potatoes = result["potatoes"]
+            else:
+                await ctx.channel.send('You need to register before you can trade')
+                return
+
+            if quantity == None:
+                quantity = 1.0
+            elif (int(quantity) <= 0):
+                await ctx.channel.send("Enter a valid quantity")
+                return
+            else:
+                quantity = float(quantity)
+
+            # Grabs stock info using TDA API, returns as embed
+            stock = stock.upper()
+            userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/quotes?apikey={td_token}&symbol={stock}", headers = headers)
+            mark = userRequest.json()[stock]["mark"]
+            mark = "{:.2f}".format(mark)
+            totalCost = float(mark)*quantity
+            totalCost = round(totalCost, 2)
+
+            # Returns stock information to user
+            #await ctx.message.delete()
+            embed = discord.Embed(title=(f'Buy Stock\nTotal Cost: {totalCost}'), description=(f"Ticker: {stock}\nPrice: {mark}\nQuantity: {quantity}"), color=discord.Color.green())
+            embed.set_author(name=ctx.author.name)
+            embed.set_thumbnail(url=ctx.author.avatar_url)
+            embed.timestamp = datetime.datetime.utcnow()
+            embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
+
+            # Checks if user has enough money
+            if potatoes < totalCost:
+                embed.add_field(name=(f"You do not have enough\nto purchase this stock."),value=(f"You have: {potatoes} potatoes"),inline=False)
+                message = await ctx.channel.send(embed=embed)
+                return
+
+            embed.add_field(name="Confirm or reject\nyour order by reacting\nwith a ✅ or a ❌\nin the next 10 seconds.",value='\u200b',inline=False)
+            message = await ctx.channel.send(embed=embed)
+            await message.add_reaction('✅')
+            await message.add_reaction('❌')
+
+            def check(reaction, user):
+                return reaction.message == message and str(reaction) in ['✅','❌'] and user == ctx.author
+            
+            # Checks if user accepts or rejects the given price
+            try:
+                reaction, user = await self.client.wait_for('reaction_add', timeout = 10.0, check=check)
+
+                if str(reaction) == '✅':
+                    remainingPotatoes = round(potatoes-totalCost, 2)
+                    requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{remainingPotatoes}')
+
+                    # Add a check later on for if the option is already opened
+                    # Check if there is already an existing options position
+                    r = requests.get(f'http://localhost:3000/findstockopen/{ctx.author.id}/{stock}')
+                    user = json.loads(r.text)
+
+                    for result in user:
+                        try:
+                            if (result["openStocks"][0]["ticker"] == stock):
+                                # Existing position, get info and add onto it
+                                newQuantity = result["openStocks"][0]["quantity"] + quantity
+                                newTotalCost = result["openStocks"][0]["totalCost"] + totalCost
+                                newTotalCost = round(newTotalCost, 2)
+                                requests.get(f'http://localhost:3000/removestockopen/{ctx.author.id}/{stock}')
+                                requests.get(f'http://localhost:3000/openstockopen/{ctx.author.id}/{stock}/{newQuantity}/{newTotalCost}')
+                        except:
+                            # Not an existing position
+                            requests.get(f'http://localhost:3000/openstockopen/{ctx.author.id}/{stock}/{quantity}/{totalCost}')
+
+                    embed.set_field_at(0, name="Order Confirmed", value=(f'You have: {remainingPotatoes} potatoes'),inline=False)
+                    print(f"{ctx.author} has bought {stock} stocks")
+                elif str(reaction) == '❌':
+                    embed.set_field_at(0, name="Order Rejected", value='\u200b',inline=False)
+            except asyncio.TimeoutError:
+                embed.set_field_at(0, name="Order Timed Out", value='\u200b',inline=False)
+
+            await message.clear_reactions()
+            await message.edit(embed=embed)
+        except:
+            await ctx.channel.send("Format incorrect or you have not registered.")
+
+    @commands.command(aliases = ["sellstock", "ss"])
+    async def sellStock(self, ctx, stock, quantity=None):
+        try:
+            r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
+            user = json.loads(r.text)
+
+            if (user != []):
+                for result in user:
+                    potatoes = result["potatoes"]
+            else:
+                await ctx.channel.send('You need to register before you can trade')
+                return
+
+            stock = stock.upper()
+            if quantity == None:
+                quantity = 1.0
+            elif (int(quantity) <= 0):
+                await ctx.channel.send("Enter a valid quantity")
+                return
+            else:
+                quantity = float(quantity)
+
+            # Grabs stock info of user
+            r = requests.get(f'http://localhost:3000/findstockopen/{ctx.author.id}/{stock}')
+            user = json.loads(r.text)
+
+            fullPositionClose = False
+            for result in user:
+                try:
+                    if (result["openStocks"][0]["ticker"] == stock):
+                        # Existing position, get info and add onto it
+                        prevOpenQuantity = result["openStocks"][0]["quantity"]
+                        prevOpenTotalCost = result["openStocks"][0]["totalCost"]
+                        prevOpenTotalCost = round(prevOpenTotalCost, 2)
+
+                        newOpenQuantity = prevOpenQuantity - quantity
+                        costPer = round(prevOpenTotalCost/prevOpenQuantity, 2)
+                    if (prevOpenQuantity == quantity):
+                        fullPositionClose = True
+                    if (prevOpenQuantity < quantity):
+                        # Cannot sell more than you  own
+                        await ctx.channel.send(f'You cannot sell more than you currently own. You have {prevOpenQuantity}!')
+                        return
+                except:
+                    # Nonexisting position
+                    await ctx.channel.send('You do not have any of this stock to close')
+                    return
+
+
+            # Grabs stock info using TDA API, returns as embed
+            userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/quotes?apikey={td_token}&symbol={stock}", headers = headers)
+            mark = userRequest.json()[stock]["mark"]
+            mark = "{:.2f}".format(mark)
+            totalCredit = float(mark)*quantity
+            totalCredit = round(totalCredit, 2)
+            totalCost = costPer*quantity
+            profitLoss = round(totalCredit - totalCost, 2)
+            profitLossPercent = round(profitLoss/totalCost*100.0)
+
+            embed = discord.Embed(title=(f'Sell Stock\nTotal Credit: {totalCredit}\nP/L: {profitLoss}'), description=(f"Ticker: {stock}\nOpen Price: {costPer}\nClosing Price: {mark}\nQuantity: {quantity}\nP/L: {profitLossPercent}%"), color=discord.Color.red())
+            embed.set_author(name=ctx.author.name)
+            embed.set_thumbnail(url=ctx.author.avatar_url)
+            embed.timestamp = datetime.datetime.utcnow()
+            embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
+            embed.add_field(name="Confirm or reject\nyour order by reacting\nwith a ✅ or a ❌\nin the next 10 seconds.",value='\u200b',inline=False)
+            message = await ctx.channel.send(embed=embed)
+            await message.add_reaction('✅')
+            await message.add_reaction('❌')
+
+            def check(reaction, user):
+                return reaction.message == message and str(reaction) in ['✅','❌'] and user == ctx.author
+            
+            # Checks if user accepts or rejects the given price
+            try:
+                reaction, user = await self.client.wait_for('reaction_add', timeout = 10.0, check=check)
+
+                if str(reaction) == '✅':
+                    userPotatoes = round(potatoes+totalCredit, 2)
+                    requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{userPotatoes}')
+
+                    r = requests.get(f'http://localhost:3000/findstockclosed/{ctx.author.id}/{stock}')
+                    user = json.loads(r.text)
+
+                    closedArrayExist = False
+                    for result in user:
+                        try:
+                            if (result["closedStocks"][0]["ticker"] == stock):
+                                # Existing position, get info and add onto it
+                                prevClosedQuantity = result["closedStocks"][0]["quantity"]
+                                prevClosedTotalCost = result["closedStocks"][0]["totalCost"]
+                                prevClosedTotalCost = round(prevClosedTotalCost, 2)
+                                prevClosedTotalCredit = result["closedStocks"][0]["totalCredit"]
+
+                                newClosedQuantity = quantity + prevClosedQuantity
+                                newClosedTotalCost = round(totalCost + prevClosedTotalCost, 2)
+                                newClosedTotalCredit = round(totalCredit + prevClosedTotalCredit, 2)
+                                closedArrayExist = True
+                        except:
+                            # Nonexisting position
+                            newClosedQuantity = quantity
+                            newClosedTotalCost = round(totalCost, 2)
+                            newClosedTotalCredit = round(totalCredit, 2)
+                            pass
+
+                    # Add a check later on for if the option is already opened
+                    # Check if there is already an existing options position
+                    if (fullPositionClose):
+                        requests.get(f'http://localhost:3000/removestockopen/{ctx.author.id}/{stock}')
+                        if (closedArrayExist):
+                            requests.get(f'http://localhost:3000/removestockclosed/{ctx.author.id}/{stock}')
+                        requests.get(f'http://localhost:3000/openstockclosed/{ctx.author.id}/{stock}/{newClosedQuantity}/{newClosedTotalCost}/{newClosedTotalCredit}')
+                    else:  
+                        requests.get(f'http://localhost:3000/removestockopen/{ctx.author.id}/{stock}')
+                        newOpenTotalCost = round(prevOpenTotalCost - totalCost, 2)
+                        requests.get(f'http://localhost:3000/openstockopen/{ctx.author.id}/{stock}/{newOpenQuantity}/{newOpenTotalCost}')
+                        if (closedArrayExist):
+                            requests.get(f'http://localhost:3000/removestockclosed/{ctx.author.id}/{stock}')
+                        requests.get(f'http://localhost:3000/openstockclosed/{ctx.author.id}/{stock}/{newClosedQuantity}/{newClosedTotalCost}/{newClosedTotalCredit}')
+
+                    embed.set_field_at(0, name="Order Confirmed", value=(f'You have: {userPotatoes} potatoes'),inline=False)
+                    print(f"{ctx.author} has sold {stock} stocks")
+                elif str(reaction) == '❌':
+                    embed.set_field_at(0, name="Order Rejected", value='\u200b',inline=False)
+            except asyncio.TimeoutError:
+                embed.set_field_at(0, name="Order Timed Out", value='\u200b',inline=False)
+
+            await message.clear_reactions()
+            await message.edit(embed=embed)
+        except:
+            await ctx.channel.send("Format incorrect or you have not registered.")
+
     @commands.command(aliases = ["buyoption", "BTO", "bto", "bo"])
     async def buyOption(self, ctx, stock, option, date, quantity=None):
-        try:
+        #try:
+            # Queries database for user info
+            r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
+            user = json.loads(r.text)
+
+            if (user != []):
+                for result in user:
+                    potatoes = result["potatoes"]
+                    openTrades = result["openTrades"]
+            else:
+                await ctx.channel.send('You need to register before you can trade')
+                return
+
             # Formats given variables
             stock = stock.upper()
             strike = option[:-1]
             optionType = option[-1]
             month,day,year = date.split('/')
+
             if quantity == None:
                 quantity = 1.0
+            elif (int(quantity) <= 0):
+                await ctx.channel.send("Enter a valid quantity")
+                return
             else:
                 quantity = float(quantity)
+
             if len(month) == 1:
                 month = "0" + month
             if len(day) == 1:
@@ -185,20 +353,8 @@ class Trading(commands.Cog):
             totalCost = float(mark)*quantity*100
             totalCost = round(totalCost, 2)
 
-            # Queries database for user info
-            r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
-            user = json.loads(r.text)
-
-            if (user != []):
-                for result in user:
-                    potatoes = result["potatoes"]
-                    openTrades = result["openTrades"]
-            else:
-                await ctx.channel.send('You need to register before you can trade')
-                return
-
             # Returns option information to user
-            await ctx.message.delete()
+            #await ctx.message.delete()
             embed = discord.Embed(title=(f"BTO\nTotal Cost: {totalCost}"), description=(f"Ticker: {stock} {optionType}\nStrike: {strike}\nExpiration: {month}/{day}/{year}\nPrice: {mark}\nQuantity: {quantity}"),color=discord.Color.green())
             embed.set_author(name=ctx.author.name)
             embed.set_thumbnail(url=ctx.author.avatar_url)
@@ -230,9 +386,189 @@ class Trading(commands.Cog):
                     requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
 
                     # Add a check later on for if the option is already opened
-                    #UserTrades.update_one({'_id': ctx.author.id}, {'$push': {'openOptions': {'ticker': (f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"), "quantity": quantity, "totalCost": totalCost}} })
-                    requests.get(f'http://localhost:3000/openoption/{ctx.author.id}/{stock}_{strike}_{optionType}_/{month}/{day}/{year}/{quantity}/{totalCost}')
+                    # Check if there is already an existing options position
+                    r = requests.get(f'http://localhost:3000/findoptionopen/{ctx.author.id}/{stock}_{strike}_{optionType}_/{month}/{day}/{year}')
+                    user = json.loads(r.text)
+
+                    tickerMatch = f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"
+                    fullTicker = f"{stock}_{strike}_{optionType}_/{month}/{day}/{year}"
+                    for result in user:
+                        try:
+                            if (result["openOptions"][0]['ticker'] == tickerMatch):
+                                newQuantity = result["openOptions"][0]["quantity"] + quantity
+                                newTotalCost = result["openOptions"][0]["totalCost"] + totalCost
+                                newTotalCost = round(newTotalCost, 2)
+
+                                requests.get(f'http://localhost:3000/removeoptionopen/{ctx.author.id}/{fullTicker}')
+                                requests.get(f'http://localhost:3000/openoptionopen/{ctx.author.id}/{fullTicker}/{newQuantity}/{newTotalCost}')
+                        except:
+                            # Not an existing position
+                            requests.get(f'http://localhost:3000/openoptionopen/{ctx.author.id}/{fullTicker}/{quantity}/{totalCost}')
                     
+                    
+                    embed.set_field_at(0, name="Order Confirmed", value=(f'You have: {remainingPotatoes} potatoes'),inline=False)
+                    print(f"{ctx.author} has bought an options contract")
+                elif str(reaction) == '❌':
+                    embed.set_field_at(0, name="Order Rejected", value='\u200b',inline=False)
+
+            except asyncio.TimeoutError:
+                embed.set_field_at(0, name="Order Timed Out", value='\u200b',inline=False)
+
+            await message.clear_reactions()
+            await message.edit(embed=embed)
+        #except:
+            #await ctx.channel.send("Format incorrect or you have not registered.")
+    
+    @commands.command(aliases = ["selloption", "STC", "stc", "so"])
+    async def sellOption(self, ctx, stock, option, date, quantity=None):
+        try:
+            # Queries database for user info
+            r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
+            user = json.loads(r.text)
+
+            if (user != []):
+                for result in user:
+                    potatoes = result["potatoes"]
+                    openTrades = result["openTrades"]
+            else:
+                await ctx.channel.send('You need to register before you can trade')
+                return
+
+            # Formats given variables
+            stock = stock.upper()
+            strike = option[:-1]
+            optionType = option[-1]
+            month,day,year = date.split('/')
+
+            if quantity == None:
+                quantity = 1.0
+            elif (int(quantity) <= 0):
+                await ctx.channel.send("Enter a valid quantity")
+                return
+            else:
+                quantity = float(quantity)
+
+            if len(month) == 1:
+                month = "0" + month
+            if len(day) == 1:
+                day = "0" + day
+            if len(year) == 2:
+                year = "20" + year
+
+            if optionType.lower() == 'c':
+                optionType = 'CALL'
+            elif optionType.lower() == 'p':
+                optionType = 'PUT'
+            else:
+                await ctx.channel.send("Format incorrect or you have not registered.")
+                return
+
+            # Uses TDA API to get info on given option
+            userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/chains?apikey={td_token}&symbol={stock}&contractType={optionType}&includeQuotes=FALSE&strike={strike}&fromDate={year}-{month}-{day}&toDate={year}-{month}-{day}", headers = headers)
+            strike = "{:.1f}".format(float(strike))
+            key = list(userRequest.json()[f"{optionType.lower()}ExpDateMap"].keys())[0]
+
+            tickerMatch = f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"
+            fullTicker = f"{stock}_{strike}_{optionType}_/{month}/{day}/{year}"
+            # Grabs option info of user
+            r = requests.get(f'http://localhost:3000/findoptionopen/{ctx.author.id}/{fullTicker}')
+            user = json.loads(r.text)
+
+            fullPositionClose = False
+            for result in user:
+                try:
+                    if (result["openOptions"][0]['ticker'] == tickerMatch):
+                        # Existing position, get info and add onto it
+                        prevOpenQuantity = result["openOptions"][0]["quantity"]
+                        prevOpenTotalCost = result["openOptions"][0]["totalCost"]
+                        prevOpenTotalCost = round(prevOpenTotalCost, 2)
+
+                        newOpenQuantity = prevOpenQuantity - quantity
+                        costPer = round((prevOpenTotalCost/prevOpenQuantity)/100, 2)
+                    if (prevOpenQuantity == quantity):
+                        fullPositionClose = True
+                    if (prevOpenQuantity < quantity):
+                        # Cannot sell more than you  own
+                        await ctx.channel.send(f'You cannot sell more than you currently own. You have {prevOpenQuantity}!')
+                        return
+                except:
+                    # Nonexisting position
+                    await ctx.channel.send('You do not have any of this option to close')
+                    return
+
+            mark = userRequest.json()[f"{optionType.lower()}ExpDateMap"][key][strike][0]["mark"]
+            mark = "{:.2f}".format(mark)
+            totalCredit = float(mark)*quantity*100
+            totalCredit = round(totalCredit, 2)
+            totalCost = costPer*quantity*100
+            totalCost = round(totalCost, 2)
+            profitLoss = round(totalCredit - totalCost, 2)
+            profitLossPercent = round(profitLoss/totalCost*100.0)
+
+            # Returns option information to user
+            #await ctx.message.delete()
+            embed = discord.Embed(title=(f"STC\nTotal Credit: {totalCredit}\nP/L: {profitLoss}"), description=(f"Ticker: {stock} {optionType}\nStrike: {strike}\nExpiration: {month}/{day}/{year}\nOpen Price: {costPer}\nClosing Price: {mark}\nQuantity: {quantity}\nP/L: {profitLossPercent}%"),color=discord.Color.red())
+            embed.set_author(name=ctx.author.name)
+            embed.set_thumbnail(url=ctx.author.avatar_url)
+            embed.timestamp = datetime.datetime.utcnow()
+            embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
+            embed.add_field(name="Confirm or reject\nyour order by reacting\nwith a ✅ or a ❌\nin the next 10 seconds.",value='\u200b',inline=False)
+            message = await ctx.channel.send(embed=embed)
+            await message.add_reaction('✅')
+            await message.add_reaction('❌')
+
+            def check(reaction, user):
+                return reaction.message == message and str(reaction) in ['✅','❌'] and user == ctx.author
+
+            # Checks if user accepts or rejects the given price
+            try:
+                reaction, user = await self.client.wait_for('reaction_add', timeout = 10.0, check=check)
+
+                if str(reaction) == '✅':
+                    remainingPotatoes = round(potatoes+totalCredit, 2)
+                    openTrades += 1
+                    requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{remainingPotatoes}')
+                    requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
+
+                    r = requests.get(f'http://localhost:3000/findoptionclosed/{ctx.author.id}/{fullTicker}')
+                    user = json.loads(r.text)
+
+                    closedArrayExist = False
+                    for result in user:
+                        try:
+                            if (result["closedOptions"][0]['ticker'] == tickerMatch):
+                                # Existing position, get info and add onto it
+                                prevClosedQuantity = result["closedOptions"][0]["quantity"]
+                                prevClosedTotalCost = result["closedOptions"][0]["totalCost"]
+                                prevClosedTotalCost = round(prevClosedTotalCost, 2)
+                                prevClosedTotalCredit = result["closedOptions"][0]["totalCredit"]
+
+                                newClosedQuantity = quantity + prevClosedQuantity
+                                newClosedTotalCost = round(totalCost + prevClosedTotalCost, 2)
+                                newClosedTotalCredit = round(totalCredit + prevClosedTotalCredit, 2)
+                                closedArrayExist = True
+                        except:
+                            # Nonexisting position
+                            newClosedQuantity = quantity
+                            newClosedTotalCost = round(totalCost, 2)
+                            newClosedTotalCredit = round(totalCredit, 2)
+                            pass
+
+                    # Add a check later on for if the option is already opened
+                    # Check if there is already an existing options position
+                    if (fullPositionClose):
+                        requests.get(f'http://localhost:3000/removeoptionopen/{ctx.author.id}/{fullTicker}')
+                        if (closedArrayExist):
+                            requests.get(f'http://localhost:3000/removeoptionclosed/{ctx.author.id}/{fullTicker}')
+                        requests.get(f'http://localhost:3000/openoptionclosed/{ctx.author.id}/{fullTicker}/{newClosedQuantity}/{newClosedTotalCost}/{newClosedTotalCredit}')
+                    else:  
+                        requests.get(f'http://localhost:3000/removeoptionopen/{ctx.author.id}/{fullTicker}')
+                        newOpenTotalCost = round(prevOpenTotalCost - totalCost, 2)
+                        requests.get(f'http://localhost:3000/openoptionopen/{ctx.author.id}/{fullTicker}/{newOpenQuantity}/{newOpenTotalCost}')
+                        if (closedArrayExist):
+                            requests.get(f'http://localhost:3000/removeoptionclosed/{ctx.author.id}/{fullTicker}')
+                        requests.get(f'http://localhost:3000/openoptionclosed/{ctx.author.id}/{fullTicker}/{newClosedQuantity}/{newClosedTotalCost}/{newClosedTotalCredit}')
+
                     embed.set_field_at(0, name="Order Confirmed", value=(f'You have: {remainingPotatoes} potatoes'),inline=False)
                     print(f"{ctx.author} has bought an options contract")
                 elif str(reaction) == '❌':
@@ -245,7 +581,52 @@ class Trading(commands.Cog):
             await message.edit(embed=embed)
         except:
             await ctx.channel.send("Format incorrect or you have not registered.")
-    
+
+    ### Allows users to see their open (and eventually closed) stock and options positions
+    @commands.command(aliases = ['openstocks', 'stocks'])
+    async def openStocks(self, ctx):
+        r = requests.get(f'http://localhost:3000/find/UserTrades/{ctx.author.id}')
+        user = json.loads(r.text)
+
+        string = ''
+        for result in user:
+            for i in range(len(result["openStocks"])):
+                stock = result["openStocks"][i]["ticker"]
+                quantity = result["openStocks"][i]["quantity"]
+                totalCost = result["openStocks"][i]["totalCost"]
+                totalCost = round(totalCost, 2)
+                price = round(totalCost/quantity, 2)
+                string = string + (f"Ticker: {stock} | Avg Cost: {price} | Quantity: {quantity} | Total Cost: {totalCost}\n")
+        try:
+            await ctx.channel.send(string)
+        except:
+            await ctx.channel.send("You have no open stock positions")
+
+    @commands.command(aliases = ['closedstocks'])
+    async def closedStocks(self, ctx):
+        r = requests.get(f'http://localhost:3000/find/UserTrades/{ctx.author.id}')
+        user = json.loads(r.text)
+
+        string = ''
+        for result in user:
+            for i in range(len(result["closedStocks"])):
+                stock = result["closedStocks"][i]["ticker"]
+                quantity = result["closedStocks"][i]["quantity"]
+                totalCost = result["closedStocks"][i]["totalCost"]
+                totalCredit = result["closedStocks"][i]["totalCredit"]
+
+                totalCost = round(totalCost, 2)
+                totalCredit = round(totalCredit, 2)
+                price = round(totalCost/quantity, 2)
+                credit = round(totalCredit/quantity, 2)
+                profitLoss = round(totalCredit - totalCost, 2)
+                profitLossPercent = round(profitLoss/totalCost*100.0)
+                string = string + (f"Ticker: {stock} | Avg Cost: {price} | Avg Credit: {credit} | Quantity: {quantity} | P/L: {profitLoss} or {profitLossPercent}%\n")
+        try:
+            await ctx.channel.send(string)
+        except:
+            await ctx.channel.send("You have no closed stock positions")
+
     @commands.command(aliases = ['openoptions', 'options'])
     async def openOptions(self, ctx):
         r = requests.get(f'http://localhost:3000/find/UserTrades/{ctx.author.id}')
@@ -257,11 +638,39 @@ class Trading(commands.Cog):
                 stock, strike, optionType, date = result["openOptions"][i]["ticker"].split('_')
                 quantity = result["openOptions"][i]["quantity"]
                 totalCost = result["openOptions"][i]["totalCost"]
+                totalCost = round(totalCost, 2)
                 price = round(totalCost/quantity, 2)
-                string = string + (f"Ticker: {stock}, Strike: {strike} {optionType}, Exp: {date}, Cost Per: {price}, Quantity: {quantity}, Total Cost: {totalCost}\n")
-        if (string == ''):
-            await ctx.channel.send("You have no open positions")
-        await ctx.channel.send(string)
+                string = string + (f"Ticker: {stock} | Strike: {strike} {optionType} | Exp: {date} | Cost Per: {price} | Quantity: {quantity} | Total Cost: {totalCost}\n")
+        try:
+            await ctx.channel.send(string)
+        except:
+            await ctx.channel.send("You have no open option positions")
+
+    @commands.command(aliases = ['closedoptions'])
+    async def closedOptions(self, ctx):
+        r = requests.get(f'http://localhost:3000/find/UserTrades/{ctx.author.id}')
+        user = json.loads(r.text)
+        print(user)
+        string = ''
+        for result in user:
+            for i in range(len(result["closedOptions"])):
+                stock, strike, optionType, date = result["closedOptions"][i]["ticker"].split('_')
+                quantity = result["closedOptions"][i]["quantity"]
+                totalCost = result["closedOptions"][i]["totalCost"]
+                totalCredit = result["closedOptions"][i]["totalCredit"]
+
+                totalCost = round(totalCost, 2)
+                totalCredit = round(totalCredit, 2)
+                price = round(totalCost/quantity, 2)
+                credit = round(totalCredit/quantity, 2)
+                profitLoss = round(totalCredit - totalCost, 2)
+                profitLossPercent = round(profitLoss/totalCost*100.0)
+
+                string = string + (f"Ticker: {stock} | Strike: {strike} {optionType} | Exp: {date} | Avg Cost: {price} | Avg Credit: {credit} | Quantity: {quantity} | P/L: {profitLoss} or {profitLossPercent}%\n")
+        try:
+            await ctx.channel.send(string)
+        except:
+            await ctx.channel.send("You have no closed option positions")
 
     @commands.command(aliases = ['openoption'])
     async def openOption(self, ctx, stock, option, date):
@@ -287,16 +696,19 @@ class Trading(commands.Cog):
             return
 
         try:
-            # Find specific position
-            #user = UserTrades.find({"_id": ctx.author.id}, {"openOptions": {'$elemMatch': {"ticker": f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"}}})
-            r = requests.get(f'http://localhost:3000/findoption/{ctx.author.id}/{stock}_{strike}_{optionType}_/{month}/{day}/{year}')
+        # Find specific position
+            r = requests.get(f'http://localhost:3000/findoptionopen/{ctx.author.id}/{stock}_{strike}_{optionType}_/{month}/{day}/{year}')
             user = json.loads(r.text)
+
             tickerMatch = f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"
             for result in user:
                 for option in range(len(result["openOptions"])):
+                    print(result["openOptions"][option]['ticker'])
+                    print(tickerMatch)
                     if (result["openOptions"][option]['ticker'] == tickerMatch):
                         quantity = result["openOptions"][option]["quantity"]
                         totalCost = result["openOptions"][option]["totalCost"]
+                        totalCost = round(totalCost, 2)
                         price = round(totalCost/quantity, 2)
 
             embed = discord.Embed(title=(f"Open Option Info\nTotal Cost: {totalCost}"), description=(f"Ticker: {stock} {optionType}\nStrike: {strike}\nExpiration: {month}/{day}/{year}\nPrice: {price}\nQuantity: {quantity}"),color=discord.Color.blue())
@@ -307,20 +719,6 @@ class Trading(commands.Cog):
             await ctx.channel.send(embed=embed)
         except:
             await ctx.channel.send(f"You do not own this position.")
-
-    #@commands.command(aliases = ['closedoptions'])
-    #async def closedOptions(self, ctx):
-        #optionData = UserTrades.find({"_id": ctx.author.id})
-        #string = ''
-        #for result in optionData:
-            #for i in range(len(result["closedOptions"])):
-                #stock, strike, optionType, date = result["closedOptions"][i]["ticker"].split('_')
-                #quantity = result["closedOptions"][i]["quantity"]
-                #totalCost = result["closedOptions"][i]["totalCost"]
-                #price = round(totalCost/quantity,2)
-
-                #string = string + (f"Ticker: {stock}, Strike: {strike} {optionType}, Exp: {date}, Cost: {price}, Quantity: {quantity}\n")
-        #await ctx.channel.send(string)
 
 def setup(client):
     client.add_cog(Trading(client))
