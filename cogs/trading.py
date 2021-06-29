@@ -88,6 +88,7 @@ class Trading(commands.Cog):
             if (user != []):
                 for result in user:
                     potatoes = result["potatoes"]
+                    openTrades = result["openTrades"]
             else:
                 await ctx.channel.send('You need to register before you can trade')
                 return
@@ -136,7 +137,9 @@ class Trading(commands.Cog):
 
                 if str(reaction) == '✅':
                     remainingPotatoes = round(potatoes-totalCost, 2)
+                    openTrades += 1
                     requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{remainingPotatoes}')
+                    requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
 
                     # Add a check later on for if the option is already opened
                     # Check if there is already an existing options position
@@ -177,6 +180,13 @@ class Trading(commands.Cog):
             if (user != []):
                 for result in user:
                     potatoes = result["potatoes"]
+                    openTrades = result["openTrades"]
+                    numTrades = result["numTrades"]
+                    winningTrades = result["winningTrades"]
+                    losingTrades = result["losingTrades"]
+                    userTotalCost = result["totalCost"]
+                    totalGain = result["totalGain"]
+                    totalLoss = result["totalLoss"]
             else:
                 await ctx.channel.send('You need to register before you can trade')
                 return
@@ -245,8 +255,26 @@ class Trading(commands.Cog):
                 reaction, user = await self.client.wait_for('reaction_add', timeout = 10.0, check=check)
 
                 if str(reaction) == '✅':
+                    if (profitLoss > 0):
+                        winningTrades += 1
+                        totalGain += totalCredit - totalCost
+                        requests.get(f'http://localhost:3000/updatewinningtrades/{ctx.author.id}/{winningTrades}')
+                        requests.get(f'http://localhost:3000/updatetotalgain/{ctx.author.id}/{totalGain}')
+                    elif (profitLoss < 0):
+                        losingTrades += 1
+                        totalLoss -= totalCredit - totalCost
+                        requests.get(f'http://localhost:3000/updatelosingtrades/{ctx.author.id}/{losingTrades}')
+                        requests.get(f'http://localhost:3000/updatetotalloss/{ctx.author.id}/{totalLoss}')
+
                     userPotatoes = round(potatoes+totalCredit, 2)
+                    userTotalCost += totalCost
+                    openTrades -= 1
+                    numTrades += 1
+
                     requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{userPotatoes}')
+                    requests.get(f'http://localhost:3000/updatetotalcost/{ctx.author.id}/{userTotalCost}')
+                    requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
+                    requests.get(f'http://localhost:3000/updatenumtrades/{ctx.author.id}/{numTrades}')
 
                     r = requests.get(f'http://localhost:3000/findstockclosed/{ctx.author.id}/{stock}')
                     user = json.loads(r.text)
@@ -301,7 +329,7 @@ class Trading(commands.Cog):
 
     @commands.command(aliases = ["buyoption", "BTO", "bto", "bo"])
     async def buyOption(self, ctx, stock, option, date, quantity=None):
-        #try:
+        try:
             # Queries database for user info
             r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
             user = json.loads(r.text)
@@ -416,8 +444,8 @@ class Trading(commands.Cog):
 
             await message.clear_reactions()
             await message.edit(embed=embed)
-        #except:
-            #await ctx.channel.send("Format incorrect or you have not registered.")
+        except:
+            await ctx.channel.send("Format incorrect or you have not registered.")
     
     @commands.command(aliases = ["selloption", "STC", "stc", "so"])
     async def sellOption(self, ctx, stock, option, date, quantity=None):
@@ -430,6 +458,12 @@ class Trading(commands.Cog):
                 for result in user:
                     potatoes = result["potatoes"]
                     openTrades = result["openTrades"]
+                    numTrades = result["numTrades"]
+                    winningTrades = result["winningTrades"]
+                    losingTrades = result["losingTrades"]
+                    userTotalCost = result["totalCost"]
+                    totalGain = result["totalGain"]
+                    totalLoss = result["totalLoss"]
             else:
                 await ctx.channel.send('You need to register before you can trade')
                 return
@@ -525,10 +559,26 @@ class Trading(commands.Cog):
                 reaction, user = await self.client.wait_for('reaction_add', timeout = 10.0, check=check)
 
                 if str(reaction) == '✅':
-                    remainingPotatoes = round(potatoes+totalCredit, 2)
-                    openTrades += 1
-                    requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{remainingPotatoes}')
+                    if (profitLoss > 0):
+                        winningTrades += 1
+                        totalGain += totalCredit - totalCost
+                        requests.get(f'http://localhost:3000/updatewinningtrades/{ctx.author.id}/{winningTrades}')
+                        requests.get(f'http://localhost:3000/updatetotalgain/{ctx.author.id}/{totalGain}')
+                    elif (profitLoss < 0):
+                        losingTrades += 1
+                        totalLoss -= totalCredit - totalCost
+                        requests.get(f'http://localhost:3000/updatelosingtrades/{ctx.author.id}/{losingTrades}')
+                        requests.get(f'http://localhost:3000/updatetotalloss/{ctx.author.id}/{totalLoss}')
+
+                    userPotatoes = round(potatoes+totalCredit, 2)
+                    userTotalCost += totalCost
+                    openTrades -= 1
+                    numTrades += 1
+
+                    requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{userPotatoes}')
+                    requests.get(f'http://localhost:3000/updatetotalcost/{ctx.author.id}/{userTotalCost}')
                     requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
+                    requests.get(f'http://localhost:3000/updatenumtrades/{ctx.author.id}/{numTrades}')
 
                     r = requests.get(f'http://localhost:3000/findoptionclosed/{ctx.author.id}/{fullTicker}')
                     user = json.loads(r.text)
@@ -569,7 +619,7 @@ class Trading(commands.Cog):
                             requests.get(f'http://localhost:3000/removeoptionclosed/{ctx.author.id}/{fullTicker}')
                         requests.get(f'http://localhost:3000/openoptionclosed/{ctx.author.id}/{fullTicker}/{newClosedQuantity}/{newClosedTotalCost}/{newClosedTotalCredit}')
 
-                    embed.set_field_at(0, name="Order Confirmed", value=(f'You have: {remainingPotatoes} potatoes'),inline=False)
+                    embed.set_field_at(0, name="Order Confirmed", value=(f'You have: {userPotatoes} potatoes'),inline=False)
                     print(f"{ctx.author} has bought an options contract")
                 elif str(reaction) == '❌':
                     embed.set_field_at(0, name="Order Rejected", value='\u200b',inline=False)
@@ -626,6 +676,33 @@ class Trading(commands.Cog):
             await ctx.channel.send(string)
         except:
             await ctx.channel.send("You have no closed stock positions")
+
+    @commands.command(aliases = ['openstock'])
+    async def openStock(self, ctx, stock):
+        # Formats given variables
+        stock = stock.upper()
+
+        #try:
+        # Find specific position
+        r = requests.get(f'http://localhost:3000/findstockopen/{ctx.author.id}/{stock}')
+        user = json.loads(r.text)
+
+        for result in user:
+            for curStock in range(len(result["openStocks"])):
+                if (result["openStocks"][curStock]['ticker'] == stock):
+                    quantity = result["openStocks"][curStock]["quantity"]
+                    totalCost = result["openStocks"][curStock]["totalCost"]
+                    totalCost = round(totalCost, 2)
+                    price = round(totalCost/quantity, 2)
+
+        embed = discord.Embed(title=(f"Open Stock Info\nTotal Cost: {totalCost}"), description=(f"Ticker: {stock}\nPrice: {price}\nQuantity: {quantity}"),color=discord.Color.blue())
+        embed.set_author(name=ctx.author.name)
+        embed.set_thumbnail(url=ctx.author.avatar_url)
+        embed.timestamp = datetime.datetime.utcnow()
+        embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
+        await ctx.channel.send(embed=embed)
+        #except:
+            #await ctx.channel.send(f"You do not own this position.")
 
     @commands.command(aliases = ['openoptions', 'options'])
     async def openOptions(self, ctx):
@@ -703,8 +780,6 @@ class Trading(commands.Cog):
             tickerMatch = f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"
             for result in user:
                 for option in range(len(result["openOptions"])):
-                    print(result["openOptions"][option]['ticker'])
-                    print(tickerMatch)
                     if (result["openOptions"][option]['ticker'] == tickerMatch):
                         quantity = result["openOptions"][option]["quantity"]
                         totalCost = result["openOptions"][option]["totalCost"]

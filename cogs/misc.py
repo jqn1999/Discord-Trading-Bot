@@ -68,7 +68,7 @@ class Misc(commands.Cog):
 
     @commands.command(aliases = ["stat"])
     async def stats(self, ctx):
-        try:
+        #try:
             r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
             user = json.loads(r.text)
 
@@ -76,20 +76,30 @@ class Misc(commands.Cog):
                 potatoes = result["potatoes"]
                 numTrades = result["numTrades"]
                 openTrades = result["openTrades"]
-                totalPL = result["totalGain"] - result["totalLoss"]
+                totalGain = result["totalGain"]
+                totalLoss = result["totalLoss"]
+                totalCost = result["totalCost"]
+                winningTrades = result["winningTrades"]
+                losingTrades = result["losingTrades"]
+
+                totalPL = totalGain - totalLoss
                 if numTrades == 0:
                     avgPL = "N/A"
+                    avgPLPercent = "N/A"
+                    winrate = "N/A"
                 else:
                     avgPL = round(totalPL/numTrades, 2)
+                    avgPLPercent = round(((totalGain-totalLoss)/totalCost)/numTrades*100, 2)
+                    winrate = round(winningTrades/numTrades*100, 2)
 
-            embed = discord.Embed(title='User Information', description=(f"Potatoes: {potatoes}\nTotal Trades: {numTrades}\nOpen Trades: {openTrades}\nTotal P/L: {totalPL}\nAvg P/L: {avgPL}"), color=discord.Color.blue())
+            embed = discord.Embed(title='User Information', description=(f"Potatoes: {potatoes}\nTotal Closed Trades: {numTrades}\nOpen Trades: {openTrades}\nAvg P/L: {avgPL}\nAvg P/L %: {avgPLPercent}%\nWinrate: {winrate}%"), color=discord.Color.blue())
             embed.set_author(name=ctx.author.name)
             embed.set_thumbnail(url=ctx.author.avatar_url)
             embed.set_footer(text="Potato Hoarders")
 
             await ctx.channel.send(embed=embed)
-        except:
-            await ctx.channel.send("Format incorrect or you have not registered.")
+        #except:
+            #await ctx.channel.send("Format incorrect or you have not registered.")
 
 def setup(client):
     client.add_cog(Misc(client))
