@@ -12,7 +12,6 @@ class Misc(commands.Cog):
 
     @commands.command()
     async def register(self, ctx):
-        print(ctx.author.id)
         r = requests.get(f'http://localhost:3000/register/{ctx.author.id}')
 
         if (r.content):
@@ -41,8 +40,8 @@ class Misc(commands.Cog):
         user = json.loads(r.text)
 
         for result in user:
-            workTimer = result["workTimer"]
             potatoes = result["potatoes"]
+            workTimer = result["workTimer"]
 
         try:
             # 23 hours until user can work again
@@ -68,7 +67,7 @@ class Misc(commands.Cog):
 
     @commands.command(aliases = ["stat"])
     async def stats(self, ctx):
-        #try:
+        try:
             r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
             user = json.loads(r.text)
 
@@ -89,17 +88,51 @@ class Misc(commands.Cog):
                     winrate = "N/A"
                 else:
                     avgPL = round(totalPL/numTrades, 2)
-                    avgPLPercent = round(((totalGain-totalLoss)/totalCost)/numTrades*100, 2)
+                    avgPLPercent = round(((totalGain-totalLoss)/totalCost)*100, 2)
                     winrate = round(winningTrades/numTrades*100, 2)
 
-            embed = discord.Embed(title='User Information', description=(f"Potatoes: {potatoes}\nTotal Closed Trades: {numTrades}\nOpen Trades: {openTrades}\nAvg P/L: {avgPL}\nAvg P/L %: {avgPLPercent}%\nWinrate: {winrate}%"), color=discord.Color.blue())
+            embed = discord.Embed(title='User Information', description=(f"Potatoes: {potatoes}\nTotal Closed Trades: {numTrades}\nOpen Trades: {openTrades}\nAvg P/L: {avgPL}\nAvg P/L %: {avgPLPercent}%"), color=discord.Color.blue())
             embed.set_author(name=ctx.author.name)
             embed.set_thumbnail(url=ctx.author.avatar_url)
             embed.set_footer(text="Potato Hoarders")
 
             await ctx.channel.send(embed=embed)
-        #except:
-            #await ctx.channel.send("Format incorrect or you have not registered.")
+        except:
+            await ctx.channel.send("Format incorrect or you have not registered.")
+
+    # Can delete messages in bulk
+    @commands.command()
+    @commands.has_permissions(manage_messages=True)
+    async def purge(self, ctx, amount=1):
+        # Has the + 1 to also remove the command message, plus amount
+        await ctx.channel.purge(limit=amount + 1)
+        await ctx.send(f"{amount} messages have been removed.")
+        print(f"Purge has removed {amount} messages.")
+
+    # Returns a search of players on op.gg
+    @commands.command()
+    async def opgg(self, ctx, playerOne=None, playerTwo=None, playerThree=None, playerFour=None, playerFive=None):
+        totalPlayers = [playerOne, playerTwo, playerThree, playerFour, playerFive]
+        newTotalPlayers = []
+        for player in totalPlayers:
+            if player == None:
+                pass
+            else:
+                player = ''.join(player.split()).lower()
+                newTotalPlayers.append(player)
+        multiplier = 1
+        totalLink = ""
+        for i in newTotalPlayers:
+            if i == None:
+                pass
+            else:
+                if multiplier == 1:
+                    totalLink += i
+                    multiplier -= 1
+                else:
+                    totalLink += "%2C" + i
+        await ctx.send("https://na.op.gg/multi/query=" + totalLink)
+        print("OP.GG request has been sent.")
 
 def setup(client):
     client.add_cog(Misc(client))

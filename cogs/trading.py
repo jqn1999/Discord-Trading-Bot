@@ -18,14 +18,17 @@ class Trading(commands.Cog):
     ### Provides stock and options information
     @commands.command(aliases=['getstock', 'stock', 'Stock'])
     async def getStock(self, ctx, stock):
-        try:
+        #try:
             # Grabs stock info using TDA API, returns as embed
             stock = stock.upper()
             userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/quotes?apikey={td_token}&symbol={stock}", headers = headers)
+            netChange = userRequest.json()[stock]["regularMarketNetChange"]
+            netChange = "{:.2f}".format(netChange)
             mark = userRequest.json()[stock]["mark"]
             mark = "{:.2f}".format(mark)
+            netChangePercent = round(float(netChange) / (float(mark) + abs(float(netChange)) )*100, 2)
 
-            embed = discord.Embed(title='Stock Price', description=(f"Ticker: {stock}\nPrice: {mark}"), color=discord.Color.blue())
+            embed = discord.Embed(title='Stock Price', description=(f"Ticker: {stock}\nPrice: {mark}\nDaily Change: {netChange}\n Daily Change %: {netChangePercent}%"), color=discord.Color.blue())
             embed.set_author(name=ctx.author.name)
             embed.set_thumbnail(url=ctx.author.avatar_url)
             embed.timestamp = datetime.datetime.utcnow()
@@ -33,8 +36,8 @@ class Trading(commands.Cog):
 
             await ctx.channel.send(embed=embed)
             print(f"{ctx.author} requested {stock} information")
-        except:
-            await ctx.channel.send("That stock ticker does not exist!")
+        #except:
+            #await ctx.channel.send("That stock ticker does not exist!")
 
     @commands.command(aliases=['getoption', 'option', 'Option'])
     async def getOption(self, ctx, stock, option, date):
@@ -64,10 +67,13 @@ class Trading(commands.Cog):
             strike = "{:.1f}".format(float(strike))
             key = list(userRequest.json()[f"{optionType.lower()}ExpDateMap"].keys())[0]
 
+            netChange = userRequest.json()[f"{optionType.lower()}ExpDateMap"][key][strike][0]["markChange"]
+            netChange = "{:.2f}".format(netChange)
             mark = userRequest.json()[f"{optionType.lower()}ExpDateMap"][key][strike][0]["mark"]
             mark = "{:.2f}".format(mark)
+            netChangePercent = round(float(netChange) / (float(mark) + abs(float(netChange)) )*100, 2)
 
-            embed = discord.Embed(title='Option Details', description=(f"Ticker: {stock} {optionType}\nStrike: {strike}\nExpiration: {month}/{day}/{year}\nPrice: {mark}"),color=discord.Color.blue())
+            embed = discord.Embed(title='Option Details', description=(f"Ticker: {stock} {optionType}\nStrike: {strike}\nExpiration: {month}/{day}/{year}\nPrice: {mark}\nDaily Change: {netChange}\nDaily Change %: {netChangePercent}"),color=discord.Color.blue())
             embed.set_author(name=ctx.author.name)
             embed.set_thumbnail(url=ctx.author.avatar_url)
             embed.timestamp = datetime.datetime.utcnow()
@@ -137,9 +143,7 @@ class Trading(commands.Cog):
 
                 if str(reaction) == '✅':
                     remainingPotatoes = round(potatoes-totalCost, 2)
-                    openTrades += 1
                     requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{remainingPotatoes}')
-                    requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
 
                     # Add a check later on for if the option is already opened
                     # Check if there is already an existing options position
@@ -157,6 +161,8 @@ class Trading(commands.Cog):
                                 requests.get(f'http://localhost:3000/openstockopen/{ctx.author.id}/{stock}/{newQuantity}/{newTotalCost}')
                         except:
                             # Not an existing position
+                            openTrades += 1
+                            requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
                             requests.get(f'http://localhost:3000/openstockopen/{ctx.author.id}/{stock}/{quantity}/{totalCost}')
 
                     embed.set_field_at(0, name="Order Confirmed", value=(f'You have: {remainingPotatoes} potatoes'),inline=False)
@@ -256,25 +262,16 @@ class Trading(commands.Cog):
 
                 if str(reaction) == '✅':
                     if (profitLoss > 0):
-                        winningTrades += 1
-                        totalGain += totalCredit - totalCost
-                        requests.get(f'http://localhost:3000/updatewinningtrades/{ctx.author.id}/{winningTrades}')
+                        totalGain += round(totalCredit - totalCost, 2)
                         requests.get(f'http://localhost:3000/updatetotalgain/{ctx.author.id}/{totalGain}')
                     elif (profitLoss < 0):
-                        losingTrades += 1
-                        totalLoss -= totalCredit - totalCost
-                        requests.get(f'http://localhost:3000/updatelosingtrades/{ctx.author.id}/{losingTrades}')
+                        totalLoss -= round(totalCredit - totalCost, 2)
                         requests.get(f'http://localhost:3000/updatetotalloss/{ctx.author.id}/{totalLoss}')
 
                     userPotatoes = round(potatoes+totalCredit, 2)
                     userTotalCost += totalCost
-                    openTrades -= 1
-                    numTrades += 1
-
                     requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{userPotatoes}')
                     requests.get(f'http://localhost:3000/updatetotalcost/{ctx.author.id}/{userTotalCost}')
-                    requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
-                    requests.get(f'http://localhost:3000/updatenumtrades/{ctx.author.id}/{numTrades}')
 
                     r = requests.get(f'http://localhost:3000/findstockclosed/{ctx.author.id}/{stock}')
                     user = json.loads(r.text)
@@ -303,6 +300,18 @@ class Trading(commands.Cog):
                     # Add a check later on for if the option is already opened
                     # Check if there is already an existing options position
                     if (fullPositionClose):
+                        if (newClosedTotalCredit-newClosedTotalCost > 0):
+                            winningTrades += 1
+                            requests.get(f'http://localhost:3000/updatewinningtrades/{ctx.author.id}/{winningTrades}')
+                        elif (newClosedTotalCredit-newClosedTotalCost < 0):
+                            losingTrades += 1
+                            requests.get(f'http://localhost:3000/updatelosingtrades/{ctx.author.id}/{losingTrades}')
+
+                        openTrades -= 1
+                        numTrades += 1
+                        requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
+                        requests.get(f'http://localhost:3000/updatenumtrades/{ctx.author.id}/{numTrades}')
+
                         requests.get(f'http://localhost:3000/removestockopen/{ctx.author.id}/{stock}')
                         if (closedArrayExist):
                             requests.get(f'http://localhost:3000/removestockclosed/{ctx.author.id}/{stock}')
@@ -409,9 +418,7 @@ class Trading(commands.Cog):
 
                 if str(reaction) == '✅':
                     remainingPotatoes = round(potatoes-totalCost, 2)
-                    openTrades += 1
                     requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{remainingPotatoes}')
-                    requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
 
                     # Add a check later on for if the option is already opened
                     # Check if there is already an existing options position
@@ -431,6 +438,8 @@ class Trading(commands.Cog):
                                 requests.get(f'http://localhost:3000/openoptionopen/{ctx.author.id}/{fullTicker}/{newQuantity}/{newTotalCost}')
                         except:
                             # Not an existing position
+                            openTrades += 1
+                            requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
                             requests.get(f'http://localhost:3000/openoptionopen/{ctx.author.id}/{fullTicker}/{quantity}/{totalCost}')
                     
                     
@@ -500,7 +509,6 @@ class Trading(commands.Cog):
             # Uses TDA API to get info on given option
             userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/chains?apikey={td_token}&symbol={stock}&contractType={optionType}&includeQuotes=FALSE&strike={strike}&fromDate={year}-{month}-{day}&toDate={year}-{month}-{day}", headers = headers)
             strike = "{:.1f}".format(float(strike))
-            key = list(userRequest.json()[f"{optionType.lower()}ExpDateMap"].keys())[0]
 
             tickerMatch = f"{stock}_{strike}_{optionType}_{month}/{day}/{year}"
             fullTicker = f"{stock}_{strike}_{optionType}_/{month}/{day}/{year}"
@@ -510,6 +518,72 @@ class Trading(commands.Cog):
 
             fullPositionClose = False
             for result in user:
+                try:
+                    key = list(userRequest.json()[f"{optionType.lower()}ExpDateMap"].keys())[0]
+                except:
+                    # Option is expired
+                    if (result["openOptions"][0]['ticker'] == tickerMatch):
+                        prevOpenQuantity = result["openOptions"][0]["quantity"]
+                        prevOpenTotalCost = result["openOptions"][0]["totalCost"]
+                        prevOpenTotalCost = round(prevOpenTotalCost, 2)
+                        costPer = round((prevOpenTotalCost/prevOpenQuantity)/100, 2)
+
+                        totalCredit = 0
+                        totalCredit = round(totalCredit, 2)
+                        totalCost = costPer*quantity*100
+                        totalCost = round(totalCost, 2)
+                        profitLoss = round(totalCredit - totalCost, 2)
+
+                        losingTrades += 1
+                        totalLoss -= round(totalCredit - totalCost, 2)
+                        requests.get(f'http://localhost:3000/updatelosingtrades/{ctx.author.id}/{losingTrades}')
+                        requests.get(f'http://localhost:3000/updatetotalloss/{ctx.author.id}/{totalLoss}')
+
+                        userPotatoes = round(potatoes+totalCredit, 2)
+                        userTotalCost += totalCost
+                        openTrades -= 1
+                        numTrades += 1
+
+                        requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{userPotatoes}')
+                        requests.get(f'http://localhost:3000/updatetotalcost/{ctx.author.id}/{userTotalCost}')
+                        requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
+                        requests.get(f'http://localhost:3000/updatenumtrades/{ctx.author.id}/{numTrades}')
+
+                        r = requests.get(f'http://localhost:3000/findoptionclosed/{ctx.author.id}/{fullTicker}')
+                        user = json.loads(r.text)
+
+                        closedArrayExist = False
+                        for result in user:
+                            try:
+                                if (result["closedOptions"][0]['ticker'] == tickerMatch):
+                                    # Existing position, get info and add onto it
+                                    prevClosedQuantity = result["closedOptions"][0]["quantity"]
+                                    prevClosedTotalCost = result["closedOptions"][0]["totalCost"]
+                                    prevClosedTotalCost = round(prevClosedTotalCost, 2)
+                                    prevClosedTotalCredit = result["closedOptions"][0]["totalCredit"]
+
+                                    newClosedQuantity = quantity + prevClosedQuantity
+                                    newClosedTotalCost = round(totalCost + prevClosedTotalCost, 2)
+                                    newClosedTotalCredit = round(totalCredit + prevClosedTotalCredit, 2)
+                                    closedArrayExist = True
+                            except:
+                                # Nonexisting position
+                                newClosedQuantity = quantity
+                                newClosedTotalCost = round(totalCost, 2)
+                                newClosedTotalCredit = round(totalCredit, 2)
+                                pass
+
+                        requests.get(f'http://localhost:3000/removeoptionopen/{ctx.author.id}/{fullTicker}')
+                        if (closedArrayExist):
+                            requests.get(f'http://localhost:3000/removeoptionclosed/{ctx.author.id}/{fullTicker}')
+                        requests.get(f'http://localhost:3000/openoptionclosed/{ctx.author.id}/{fullTicker}/{newClosedQuantity}/{newClosedTotalCost}/{newClosedTotalCredit}')
+                        await ctx.channel.send("Position has expired, option has been closed for 0 credit.")
+                        return
+                    else:
+                        # Nonexisting position
+                        await ctx.channel.send('You do not have any of this option to close')
+                        return
+
                 try:
                     if (result["openOptions"][0]['ticker'] == tickerMatch):
                         # Existing position, get info and add onto it
@@ -560,25 +634,16 @@ class Trading(commands.Cog):
 
                 if str(reaction) == '✅':
                     if (profitLoss > 0):
-                        winningTrades += 1
-                        totalGain += totalCredit - totalCost
-                        requests.get(f'http://localhost:3000/updatewinningtrades/{ctx.author.id}/{winningTrades}')
+                        totalGain += round(totalCredit - totalCost, 2)
                         requests.get(f'http://localhost:3000/updatetotalgain/{ctx.author.id}/{totalGain}')
                     elif (profitLoss < 0):
-                        losingTrades += 1
-                        totalLoss -= totalCredit - totalCost
-                        requests.get(f'http://localhost:3000/updatelosingtrades/{ctx.author.id}/{losingTrades}')
+                        totalLoss -= round(totalCredit - totalCost, 2)
                         requests.get(f'http://localhost:3000/updatetotalloss/{ctx.author.id}/{totalLoss}')
 
                     userPotatoes = round(potatoes+totalCredit, 2)
                     userTotalCost += totalCost
-                    openTrades -= 1
-                    numTrades += 1
-
                     requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{userPotatoes}')
                     requests.get(f'http://localhost:3000/updatetotalcost/{ctx.author.id}/{userTotalCost}')
-                    requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
-                    requests.get(f'http://localhost:3000/updatenumtrades/{ctx.author.id}/{numTrades}')
 
                     r = requests.get(f'http://localhost:3000/findoptionclosed/{ctx.author.id}/{fullTicker}')
                     user = json.loads(r.text)
@@ -607,11 +672,25 @@ class Trading(commands.Cog):
                     # Add a check later on for if the option is already opened
                     # Check if there is already an existing options position
                     if (fullPositionClose):
+                        print('full close')
+                        if (newClosedTotalCredit-newClosedTotalCost > 0):
+                            winningTrades += 1
+                            requests.get(f'http://localhost:3000/updatewinningtrades/{ctx.author.id}/{winningTrades}')
+                        elif (newClosedTotalCredit-newClosedTotalCost < 0):
+                            losingTrades += 1
+                            requests.get(f'http://localhost:3000/updatelosingtrades/{ctx.author.id}/{losingTrades}')
+
+                        openTrades -= 1
+                        numTrades += 1
+                        requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
+                        requests.get(f'http://localhost:3000/updatenumtrades/{ctx.author.id}/{numTrades}')
+
                         requests.get(f'http://localhost:3000/removeoptionopen/{ctx.author.id}/{fullTicker}')
                         if (closedArrayExist):
                             requests.get(f'http://localhost:3000/removeoptionclosed/{ctx.author.id}/{fullTicker}')
                         requests.get(f'http://localhost:3000/openoptionclosed/{ctx.author.id}/{fullTicker}/{newClosedQuantity}/{newClosedTotalCost}/{newClosedTotalCredit}')
                     else:  
+                        print('not full close')
                         requests.get(f'http://localhost:3000/removeoptionopen/{ctx.author.id}/{fullTicker}')
                         newOpenTotalCost = round(prevOpenTotalCost - totalCost, 2)
                         requests.get(f'http://localhost:3000/openoptionopen/{ctx.author.id}/{fullTicker}/{newOpenQuantity}/{newOpenTotalCost}')
@@ -727,7 +806,7 @@ class Trading(commands.Cog):
     async def closedOptions(self, ctx):
         r = requests.get(f'http://localhost:3000/find/UserTrades/{ctx.author.id}')
         user = json.loads(r.text)
-        print(user)
+
         string = ''
         for result in user:
             for i in range(len(result["closedOptions"])):

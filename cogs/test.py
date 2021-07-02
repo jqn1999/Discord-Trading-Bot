@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from pymongo import MongoClient
-import asyncio
+import datetime
 
 client = discord.Client()
 
@@ -12,7 +12,7 @@ class Test(commands.Cog):
 
     @commands.command()
     async def test(self, ctx):
-        print('hi')
+        print('')
 
 def setup(client):
     client.add_cog(Test(client))
