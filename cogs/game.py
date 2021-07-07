@@ -54,7 +54,6 @@ class Game(commands.Cog):
             else:
                 await ctx.channel.send('Recipient needs to register')
                 return
-            
             newRecipientPotatoes = recipientPotatoes + potatoes
             requests.get(f'http://localhost:3000/updatepotatoes/{member.id}/{newRecipientPotatoes}')
         
@@ -84,40 +83,40 @@ class Game(commands.Cog):
             await ctx.channel.send('You need to register before you can hunt')
             return
 
-        if (huntTimer+600 < int(time.time())):
+        if (huntTimer+120 < int(time.time())):
             pass
         else:
-            remainingTime = huntTimer+600-int(time.time())
+            remainingTime = huntTimer+120-int(time.time())
             if (remainingTime >= 60):
-                remainingTime = math.ceil( (huntTimer+82800-int(time.time()))/60)
-                await ctx.channel.send(f'You have {remainingTime} minutes until you can work again.')
+                remainingTime = math.ceil( (huntTimer+120-int(time.time()))/60)
+                await ctx.channel.send(f'You have {remainingTime} minutes until you can hunt again.')
                 return
             else:
-                await ctx.channel.send(f'You have {remainingTime} seconds until you can work again.')
+                await ctx.channel.send(f'You have {remainingTime} seconds until you can hunt again.')
                 return
 
         monsterRNG = random.randint(1, 1000)
         if monsterRNG <= 950:
             regularKills += 1
-            loseCost = .05
+            loseCost = 100
             reward = 100
             chanceToWin = random.randint(int((80 + 1.07**(level))*.95), int((80 + 1.07**(level))*1.05))
             chosenType = 'regular'
         elif monsterRNG <= 980:
             epicKills += 1
-            loseCost = .07
+            loseCost = 200
             reward = 1000
             chanceToWin = random.randint(int((40 + 1.07**(level))*.95), int((40 + 1.07**(level))*1.05))
             chosenType = 'epic'
         elif monsterRNG <= 995:
             legendaryKills += 1
-            loseCost = .1
+            loseCost = round(potatoes*.05)
             reward = 20000
             chanceToWin = random.randint(int((10 + 1.07**(level))*.95), int((10 + 1.07**(level))*1.05))
             chosenType = 'legendary'
         else:
             mythicKills += 1
-            loseCost = .15
+            loseCost = round(potatoes*.10)
             reward = 800000
             chanceToWin = random.randint(int((5 + 1.07**(level))*.95), int((5 + 1.07**(level))*1.05))
             chosenType = 'mythic'
@@ -135,7 +134,7 @@ class Game(commands.Cog):
             chosenMonsterImg = result[chosenType][chosenMonsterIndex]["image"]
 
         embed = discord.Embed(title=(f"{chosenMonsterName}\nDifficulty: {chosenMonsterType}"), description=(f"HP: {chosenMonsterHP}\nATK: {chosenMonsterAttack}\nChance to Win: {chanceToWin}%"),color=discord.Color.dark_gold())
-        embed.set_author(name=ctx.author.name)
+        embed.set_author(name=ctx.author.name, url="https://www.youtube.com/user/maniacbraniac115", icon_url=ctx.author.avatar_url)
         embed.set_thumbnail(url=chosenMonsterImg)
         embed.timestamp = datetime.datetime.utcnow()
         embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
@@ -157,23 +156,21 @@ class Game(commands.Cog):
                 if playerWinRoll <= chanceToWin:
                     # Win
                     reward = random.randint(int(reward*.8),int(reward*1.2))
-                    newPotatoes = potatoes + reward
+                    newPotatoes = round(potatoes + reward, 2)
                     requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{newPotatoes}')
 
                     newExperience = experience + random.randint(int(chosenMonsterExp*.9), int(chosenMonsterExp*1.1))
                     newLevel = int(experience/500)+1
                     requests.get(f'http://localhost:3000/gameuserupdate/{ctx.author.id}/{newLevel}/{newExperience}/{regularKills}/{epicKills}/{legendaryKills}/{mythicKills}')
 
-                    newTotalGain = totalGain + reward
-                    print(totalGain)
-                    print(newTotalGain)
+                    newTotalGain = round(totalGain + reward, 2)
                     requests.get(f'http://localhost:3000/updatehuntgain/{ctx.author.id}/{newTotalGain}')
 
                     embed.set_field_at(0, name=f"u merked the homie and\ngained {reward} potatoes", value=(f'You now have: {newPotatoes} potatoes'),inline=False)
                 else:
                     # Lose
-                    lostPotatoes = int(potatoes*loseCost)
-                    newPotatoes = potatoes - lostPotatoes
+                    lostPotatoes = random.randint(int(loseCost*.2),int(loseCost*1.2))
+                    newPotatoes = round(potatoes - lostPotatoes, 2)
                     requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{newPotatoes}')
 
                     newLosses = losses + 1
@@ -188,6 +185,14 @@ class Game(commands.Cog):
 
         await message.clear_reactions()
         await message.edit(embed=embed)
+
+    @commands.command()
+    async def bet(self, ctx, option, potatoes):
+        # check option validity
+        # check potato amount validity
+        # check open poll validity
+        # insert or return error
+        print('x')
 
 def setup(client):
     client.add_cog(Game(client))

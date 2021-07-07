@@ -11,8 +11,8 @@ class Test(commands.Cog):
         self.client = client
 
     @commands.command()
-    async def test(self, ctx):
-        print('')
+    async def test(self, ctx, member: discord.Member):
+        await ctx.channel.send(f'{member.display_name}')
 
 def setup(client):
     client.add_cog(Test(client))

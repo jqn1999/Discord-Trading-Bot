@@ -4,6 +4,7 @@ import time
 import math
 import requests
 import json
+import random
 
 class Misc(commands.Cog):
 
@@ -12,7 +13,7 @@ class Misc(commands.Cog):
 
     @commands.command()
     async def register(self, ctx):
-        r = requests.get(f'http://localhost:3000/register/{ctx.author.id}')
+        r = requests.get(f'http://localhost:3000/register/{ctx.author.id}/{ctx.author.display_name}')
 
         if (r.content):
             await ctx.channel.send("You already have an account. Use the stats command!")
@@ -20,20 +21,6 @@ class Misc(commands.Cog):
             await ctx.channel.send('You have been added to the users database')
             print(f'{ctx.author} has been added to the users database')
 
-    @commands.command()
-    @commands.has_permissions(administrator=True)
-    async def update(self, ctx):
-        requests.get(f'http://localhost:3000/updatemany/(ENTER COLLECTION & CHANGE BACKEND)')
-        await ctx.channel.send('All users have been updated.')
-        print('Users have been updated.')
-    
-    @commands.command(aliases = ['clearcollections', 'clearall'])
-    @commands.has_permissions(administrator=True)
-    async def clearCollections(self, ctx):
-        requests.get(f'http://localhost:3000/clearall')
-        await ctx.channel.send('Collections have been cleared')
-        print('Collections have been cleared')
-    
     @commands.command()
     async def work(self, ctx):
         r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
@@ -45,20 +32,21 @@ class Misc(commands.Cog):
 
         try:
             # 23 hours until user can work again
-            if (workTimer+82800 < int(time.time())):
+            if (workTimer+3600 < int(time.time())):
                 # 10 x 8 x .85
-                potatoes += 68
+                workGain = random.randint(500*.8, 500*1.2)
+                potatoes += workGain
                 requests.get(f'http://localhost:3000/workupdate/{ctx.author.id}/{potatoes}/{int(time.time())}')
                 
-                await ctx.channel.send(f'You work and now have {potatoes} potatoes.')
+                await ctx.channel.send(f'You work and gain {workGain} potatoes. You now have {potatoes} potatoes.')
                 print(f'{ctx.author} has worked')
             else:
-                remainingTime = workTimer+82800-int(time.time())
+                remainingTime = workTimer+3600-int(time.time())
                 if (remainingTime >= 3600):
-                    remainingTime = math.ceil( (workTimer+82800-int(time.time()))/3600)
+                    remainingTime = math.ceil( (workTimer+3600-int(time.time()))/3600)
                     await ctx.channel.send(f'You have {remainingTime} hours until you can work again.')
                 elif (remainingTime >= 60):
-                    remainingTime = math.ceil( (workTimer+82800-int(time.time()))/60)
+                    remainingTime = math.ceil( (workTimer+3600-int(time.time()))/60)
                     await ctx.channel.send(f'You have {remainingTime} minutes until you can work again.')
                 else:
                     await ctx.channel.send(f'You have {remainingTime} seconds until you can work again.')
@@ -66,11 +54,14 @@ class Misc(commands.Cog):
             await ctx.channel.send("Format incorrect or you have not registered.")
 
     @commands.command(aliases = ["stat"])
-    async def stats(self, ctx):
+    async def stats(self, ctx, member: discord.Member = None):
         try:
-            r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
-            user = json.loads(r.text)
+            if member is None:
+                r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
+            else:
+                r = requests.get(f'http://localhost:3000/find/UserData/{member.id}')
 
+            user = json.loads(r.text)
             for result in user:
                 potatoes = result["potatoes"]
                 numTrades = result["numTrades"]
@@ -80,6 +71,7 @@ class Misc(commands.Cog):
                 totalCost = result["totalCost"]
                 winningTrades = result["winningTrades"]
                 losingTrades = result["losingTrades"]
+                rank = result["rank"]
 
                 totalPL = totalGain - totalLoss
                 if numTrades == 0:
@@ -91,23 +83,18 @@ class Misc(commands.Cog):
                     avgPLPercent = round(((totalGain-totalLoss)/totalCost)*100, 2)
                     winrate = round(winningTrades/numTrades*100, 2)
 
-            embed = discord.Embed(title='User Information', description=(f"Potatoes: {potatoes}\nTotal Closed Trades: {numTrades}\nOpen Trades: {openTrades}\nAvg P/L: {avgPL}\nAvg P/L %: {avgPLPercent}%"), color=discord.Color.blue())
-            embed.set_author(name=ctx.author.name)
-            embed.set_thumbnail(url=ctx.author.avatar_url)
+            embed = discord.Embed(title=f'User Information\nRank: {rank}', description=(f"Potatoes: {potatoes}\nTotal Closed Trades: {numTrades}\nOpen Trades: {openTrades}\nAvg P/L: {avgPL}\nAvg P/L %: {avgPLPercent}%"), color=discord.Color.blue())
+            if member is None:
+                embed.set_author(name=ctx.author.name, url="https://www.youtube.com/user/maniacbraniac115", icon_url=ctx.author.avatar_url)
+                embed.set_thumbnail(url=ctx.author.avatar_url)
+            else:
+                embed.set_author(name=member.display_name, url="https://www.youtube.com/user/maniacbraniac115", icon_url=member.avatar_url)
+                embed.set_thumbnail(url=member.avatar_url)
             embed.set_footer(text="Potato Hoarders")
 
             await ctx.channel.send(embed=embed)
         except:
-            await ctx.channel.send("Format incorrect or you have not registered.")
-
-    # Can delete messages in bulk
-    @commands.command()
-    @commands.has_permissions(manage_messages=True)
-    async def purge(self, ctx, amount=1):
-        # Has the + 1 to also remove the command message, plus amount
-        await ctx.channel.purge(limit=amount + 1)
-        await ctx.send(f"{amount} messages have been removed.")
-        print(f"Purge has removed {amount} messages.")
+            await ctx.channel.send("Format incorrect or someone has not registered.")
 
     # Returns a search of players on op.gg
     @commands.command()
@@ -133,6 +120,26 @@ class Misc(commands.Cog):
                     totalLink += "%2C" + i
         await ctx.send("https://na.op.gg/multi/query=" + totalLink)
         print("OP.GG request has been sent.")
+
+    @commands.command()
+    async def potatoes(self, ctx, member: discord.Member = None):
+        if member is None:
+            r = requests.get(f'http://localhost:3000/find/UserData/{ctx.author.id}')
+        else:
+            r = requests.get(f'http://localhost:3000/find/UserData/{member.id}')
+
+        user = json.loads(r.text)
+        if (user != []):
+            for result in user:
+                potatoes = result["potatoes"]
+        else:
+            await ctx.channel.send('You need to register before you can hunt')
+            return
+
+        if member is None:
+            await ctx.channel.send(f"You currently have {potatoes} potatoes")
+        else:
+            await ctx.channel.send(f"{member.display_name} currently has {potatoes} potatoes")
 
 def setup(client):
     client.add_cog(Misc(client))

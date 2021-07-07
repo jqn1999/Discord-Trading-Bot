@@ -18,7 +18,7 @@ class Trading(commands.Cog):
     ### Provides stock and options information
     @commands.command(aliases=['getstock', 'stock', 'Stock'])
     async def getStock(self, ctx, stock):
-        #try:
+        try:
             # Grabs stock info using TDA API, returns as embed
             stock = stock.upper()
             userRequest = requests.get(f"https://api.tdameritrade.com/v1/marketdata/quotes?apikey={td_token}&symbol={stock}", headers = headers)
@@ -26,18 +26,18 @@ class Trading(commands.Cog):
             netChange = "{:.2f}".format(netChange)
             mark = userRequest.json()[stock]["mark"]
             mark = "{:.2f}".format(mark)
-            netChangePercent = round(float(netChange) / (float(mark) + abs(float(netChange)) )*100, 2)
+            netChangePercent = round(float(netChange) / (float(mark) - float(netChange) )*100, 2)
 
             embed = discord.Embed(title='Stock Price', description=(f"Ticker: {stock}\nPrice: {mark}\nDaily Change: {netChange}\n Daily Change %: {netChangePercent}%"), color=discord.Color.blue())
-            embed.set_author(name=ctx.author.name)
+            embed.set_author(name=ctx.author.name, url="https://www.youtube.com/user/maniacbraniac115", icon_url=ctx.author.avatar_url)
             embed.set_thumbnail(url=ctx.author.avatar_url)
             embed.timestamp = datetime.datetime.utcnow()
             embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
 
             await ctx.channel.send(embed=embed)
             print(f"{ctx.author} requested {stock} information")
-        #except:
-            #await ctx.channel.send("That stock ticker does not exist!")
+        except:
+            await ctx.channel.send("That stock ticker does not exist!")
 
     @commands.command(aliases=['getoption', 'option', 'Option'])
     async def getOption(self, ctx, stock, option, date):
@@ -74,7 +74,7 @@ class Trading(commands.Cog):
             netChangePercent = round(float(netChange) / (float(mark) + abs(float(netChange)) )*100, 2)
 
             embed = discord.Embed(title='Option Details', description=(f"Ticker: {stock} {optionType}\nStrike: {strike}\nExpiration: {month}/{day}/{year}\nPrice: {mark}\nDaily Change: {netChange}\nDaily Change %: {netChangePercent}"),color=discord.Color.blue())
-            embed.set_author(name=ctx.author.name)
+            embed.set_author(name=ctx.author.name, url="https://www.youtube.com/user/maniacbraniac115", icon_url=ctx.author.avatar_url)
             embed.set_thumbnail(url=ctx.author.avatar_url)
             embed.timestamp = datetime.datetime.utcnow()
             embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
@@ -118,7 +118,7 @@ class Trading(commands.Cog):
             # Returns stock information to user
             #await ctx.message.delete()
             embed = discord.Embed(title=(f'Buy Stock\nTotal Cost: {totalCost}'), description=(f"Ticker: {stock}\nPrice: {mark}\nQuantity: {quantity}"), color=discord.Color.green())
-            embed.set_author(name=ctx.author.name)
+            embed.set_author(name=ctx.author.name, url="https://www.youtube.com/user/maniacbraniac115", icon_url=ctx.author.avatar_url)
             embed.set_thumbnail(url=ctx.author.avatar_url)
             embed.timestamp = datetime.datetime.utcnow()
             embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
@@ -244,7 +244,7 @@ class Trading(commands.Cog):
             profitLossPercent = round(profitLoss/totalCost*100.0)
 
             embed = discord.Embed(title=(f'Sell Stock\nTotal Credit: {totalCredit}\nP/L: {profitLoss}'), description=(f"Ticker: {stock}\nOpen Price: {costPer}\nClosing Price: {mark}\nQuantity: {quantity}\nP/L: {profitLossPercent}%"), color=discord.Color.red())
-            embed.set_author(name=ctx.author.name)
+            embed.set_author(name=ctx.author.name, url="https://www.youtube.com/user/maniacbraniac115", icon_url=ctx.author.avatar_url)
             embed.set_thumbnail(url=ctx.author.avatar_url)
             embed.timestamp = datetime.datetime.utcnow()
             embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
@@ -269,7 +269,7 @@ class Trading(commands.Cog):
                         requests.get(f'http://localhost:3000/updatetotalloss/{ctx.author.id}/{totalLoss}')
 
                     userPotatoes = round(potatoes+totalCredit, 2)
-                    userTotalCost += totalCost
+                    userTotalCost += round(totalCost, 2)
                     requests.get(f'http://localhost:3000/updatepotatoes/{ctx.author.id}/{userPotatoes}')
                     requests.get(f'http://localhost:3000/updatetotalcost/{ctx.author.id}/{userTotalCost}')
 
@@ -300,6 +300,7 @@ class Trading(commands.Cog):
                     # Add a check later on for if the option is already opened
                     # Check if there is already an existing options position
                     if (fullPositionClose):
+                        print('fullstockclose')
                         if (newClosedTotalCredit-newClosedTotalCost > 0):
                             winningTrades += 1
                             requests.get(f'http://localhost:3000/updatewinningtrades/{ctx.author.id}/{winningTrades}')
@@ -312,16 +313,23 @@ class Trading(commands.Cog):
                         requests.get(f'http://localhost:3000/updateopentrades/{ctx.author.id}/{openTrades}')
                         requests.get(f'http://localhost:3000/updatenumtrades/{ctx.author.id}/{numTrades}')
 
+                        print('removed stock open')
                         requests.get(f'http://localhost:3000/removestockopen/{ctx.author.id}/{stock}')
                         if (closedArrayExist):
+                            print('closed exists, removing open')
                             requests.get(f'http://localhost:3000/removestockclosed/{ctx.author.id}/{stock}')
+                        print(f'http://localhost:3000/openstockclosed/{ctx.author.id}/{stock}/{newClosedQuantity}/{newClosedTotalCost}/{newClosedTotalCredit}')
+                        print('opening closed with new vars')
                         requests.get(f'http://localhost:3000/openstockclosed/{ctx.author.id}/{stock}/{newClosedQuantity}/{newClosedTotalCost}/{newClosedTotalCredit}')
                     else:  
+                        print('not full close')
                         requests.get(f'http://localhost:3000/removestockopen/{ctx.author.id}/{stock}')
                         newOpenTotalCost = round(prevOpenTotalCost - totalCost, 2)
                         requests.get(f'http://localhost:3000/openstockopen/{ctx.author.id}/{stock}/{newOpenQuantity}/{newOpenTotalCost}')
                         if (closedArrayExist):
+                            print('closed exists in not full close, removing')
                             requests.get(f'http://localhost:3000/removestockclosed/{ctx.author.id}/{stock}')
+                        print('added new close with new vars')
                         requests.get(f'http://localhost:3000/openstockclosed/{ctx.author.id}/{stock}/{newClosedQuantity}/{newClosedTotalCost}/{newClosedTotalCredit}')
 
                     embed.set_field_at(0, name="Order Confirmed", value=(f'You have: {userPotatoes} potatoes'),inline=False)
@@ -393,7 +401,7 @@ class Trading(commands.Cog):
             # Returns option information to user
             #await ctx.message.delete()
             embed = discord.Embed(title=(f"BTO\nTotal Cost: {totalCost}"), description=(f"Ticker: {stock} {optionType}\nStrike: {strike}\nExpiration: {month}/{day}/{year}\nPrice: {mark}\nQuantity: {quantity}"),color=discord.Color.green())
-            embed.set_author(name=ctx.author.name)
+            embed.set_author(name=ctx.author.name, url="https://www.youtube.com/user/maniacbraniac115", icon_url=ctx.author.avatar_url)
             embed.set_thumbnail(url=ctx.author.avatar_url)
             embed.timestamp = datetime.datetime.utcnow()
             embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
@@ -616,7 +624,7 @@ class Trading(commands.Cog):
             # Returns option information to user
             #await ctx.message.delete()
             embed = discord.Embed(title=(f"STC\nTotal Credit: {totalCredit}\nP/L: {profitLoss}"), description=(f"Ticker: {stock} {optionType}\nStrike: {strike}\nExpiration: {month}/{day}/{year}\nOpen Price: {costPer}\nClosing Price: {mark}\nQuantity: {quantity}\nP/L: {profitLossPercent}%"),color=discord.Color.red())
-            embed.set_author(name=ctx.author.name)
+            embed.set_author(name=ctx.author.name, url="https://www.youtube.com/user/maniacbraniac115", icon_url=ctx.author.avatar_url)
             embed.set_thumbnail(url=ctx.author.avatar_url)
             embed.timestamp = datetime.datetime.utcnow()
             embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
@@ -775,7 +783,7 @@ class Trading(commands.Cog):
                     price = round(totalCost/quantity, 2)
 
         embed = discord.Embed(title=(f"Open Stock Info\nTotal Cost: {totalCost}"), description=(f"Ticker: {stock}\nPrice: {price}\nQuantity: {quantity}"),color=discord.Color.blue())
-        embed.set_author(name=ctx.author.name)
+        embed.set_author(name=ctx.author.name, url="https://www.youtube.com/user/maniacbraniac115", icon_url=ctx.author.avatar_url)
         embed.set_thumbnail(url=ctx.author.avatar_url)
         embed.timestamp = datetime.datetime.utcnow()
         embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
@@ -866,7 +874,7 @@ class Trading(commands.Cog):
                         price = round(totalCost/quantity, 2)
 
             embed = discord.Embed(title=(f"Open Option Info\nTotal Cost: {totalCost}"), description=(f"Ticker: {stock} {optionType}\nStrike: {strike}\nExpiration: {month}/{day}/{year}\nPrice: {price}\nQuantity: {quantity}"),color=discord.Color.blue())
-            embed.set_author(name=ctx.author.name)
+            embed.set_author(name=ctx.author.name, url="https://www.youtube.com/user/maniacbraniac115", icon_url=ctx.author.avatar_url)
             embed.set_thumbnail(url=ctx.author.avatar_url)
             embed.timestamp = datetime.datetime.utcnow()
             embed.set_footer(text="Potato Hoarders",icon_url="https://i.imgur.com/uZIlRnK.png")
