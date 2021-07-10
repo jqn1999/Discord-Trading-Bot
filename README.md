@@ -1,9 +1,12 @@
 # Potato-Bot
-This is a Discord bot in development that will allow users to simulate stock and options trades in real-time through Discord commands.
+This is a Discord bot in development that will allow users to simulate stock and options trades in real-time through Discord commands as well as various fun ways to generate the money to do so.
 # Getting Started
-(talks about getting a discord bot, guild, and mongodb set up)
+First, you will need to setup a Discord bot through the Discord Developer Portal.
+Next, you will need to setup a Discord server where you can invite your bot.
+Then, you will need to create a mongo database, which can be done at mongodb.com.
+Finally, you can just pull this repository.
 
-Next, you will need to install:
+Next, you will need to run:
 ```
 pip install discord.py
 pip install requests
@@ -14,4 +17,4 @@ npm install cors
 npm install dotenv
 ```
 
-Make a folder named 'tokens' and place your bot_token.txt and td_token.txt inside
+Now, make a folder named 'tokens' and place your bot_token.txt and td_token.txt inside along with the respective tokens needed.
