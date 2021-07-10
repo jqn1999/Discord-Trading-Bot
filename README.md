@@ -18,3 +18,9 @@ npm install dotenv
 ```
 
 Now, make a folder named 'tokens' and place your bot_token.txt and td_token.txt inside along with the respective tokens needed.
+
+Finally, you can run:
+```
+python main.py
+```
+and your bot should be up and running!
